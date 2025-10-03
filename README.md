@@ -5,7 +5,7 @@
 
 
 ## API 명세 문서
-- [API 명세 문서 바로가기](docs/api_spec.html)
+- [API 명세 문서 바로가기](https://ktyu.github.io/service-server-user/api_spec.html)
 
 ## AWS 인프라 설계 (프리티어 활용)
 ![AWS 인프라 아키텍처](docs/infra_aws_architecture.png)
