@@ -181,11 +181,12 @@
   "accessToken": "jwt-access",
   "refreshToken": "jwt-refresh"
 }</code></pre>
-        <h3>중복 가입 거절(205)</h3>
+        <h3>중복 가입 거절(208)</h3>
 <pre><code class="mono">{
-  "code": 10001,
+  "success": false,
+  "errorCode": "ALREADY_SIGNUP_CI",
   "message": "이미 가입했던 이력이 확인돼요.",
-  "details": { "serviceUserId": 1, "socialType": "KAKAO", "email": "myid@example.com", "lastLoginDate": "2025-09-01" }
+  "data": { "serviceUserId": 1, "socialType": "KAKAO", "email": "myid@example.com", "lastLoginDate": "2025-09-01" }
 }</code></pre>
         <h3>기타</h3>
         <ul>
@@ -335,14 +336,15 @@
     <h2>스키마</h2>
 
     <details>
-      <summary><code>ErrorResponse</code></summary>
+      <summary><code>Response</code></summary>
       <div class="content">
         <table>
           <thead><tr><th>필드</th><th>타입</th><th>설명</th></tr></thead>
           <tbody>
-            <tr><td>code</td><td>int32</td><td>에러 코드</td></tr>
+            <tr><td>success</td><td>boolean</td><td>성공 여부</td></tr>
+            <tr><td>errorCode</td><td>string</td><td>에러 코드</td></tr>
             <tr><td>message</td><td>string</td><td>에러 메시지</td></tr>
-            <tr><td>details</td><td>object</td><td>에러 세부(Map, 자유 형식)</td></tr>
+            <tr><td>data</td><td>object</td><td>에러 세부(Map, 자유 형식)</td></tr>
           </tbody>
         </table>
       </div>
@@ -587,7 +589,7 @@ paths:
                   - serviceUserId
                   - accessToken
                   - refreshToken
-        '205':
+        '208':
           description: |-
             중복 가입 거절
 
@@ -595,14 +597,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Response"
               examples:
                 already_signup_ci:
                   summary: 동일한 CI로 이미 가입된 계정 정보 제공
                   value:
-                    code: 10001
+                    success: false
+                    errorCode: ALREADY_SIGNUP_CI
                     message: "이미 가입했던 이력이 확인돼요."
-                    details:
+                    data:
                       serviceUserId: 1
                       socialType: KAKAO
                       email: myid@example.com
@@ -940,24 +943,27 @@ components:
       description: 서버 오류
 
   schemas:
-    ErrorResponse:
+    Response:
       type: object
       description: 서버 공통 에러 응답
       properties:
-        code:
-          type: integer
-          format: int32
-          example: 10000
+        success:
+          type: boolean
+        errorCode:
+          type: string
+          example: ALREADY_SIGNUP_CI
         message:
           type: string
           example: "잘못된 요청입니다."
-        details:
+        data:
           type: object
           description: 에러 세부 내용 (Map 형태로 에러마다 달라질 수 있음)
           additionalProperties: true
           example:
             key1: "value1"
             key2: "value2"
+      required:
+        - success
 
     Identity:
       type: object

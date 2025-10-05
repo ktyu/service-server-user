@@ -1,6 +1,7 @@
 package com.service.api.persistence.entity
 
 import com.service.api.common.enum.GenderType
+import com.service.api.common.enum.SocialType
 import jakarta.persistence.*
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -59,4 +60,14 @@ class JpaUserIdentityEntity(
 
     @Column(name = "deleted_at")
     var deletedAt: LocalDateTime? = null
-)
+) {
+
+    fun getSub(socialType: SocialType): String? {
+        return when (socialType) {
+            SocialType.KAKAO -> this.kakaoSub
+            SocialType.APPLE -> this.appleSub
+            SocialType.NAVER -> this.naverSub
+            SocialType.GOOGLE -> this.googleSub
+        }
+    }
+}

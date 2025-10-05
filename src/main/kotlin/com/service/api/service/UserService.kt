@@ -2,10 +2,13 @@ package com.service.api.service
 
 import com.service.api.common.enum.GenderType
 import com.service.api.common.enum.SocialType
+import com.service.api.common.exception.AlreadySignupCiException
+import com.service.api.common.exception.AlreadySignupCiInfo
 import com.service.api.model.TermsAgreement
 import com.service.api.persistence.entity.JpaUserIdentityEntity
 import com.service.api.persistence.entity.JpaUserProfileEntity
 import com.service.api.persistence.repository.*
+import com.service.api.service.social.SocialService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,7 +17,9 @@ import java.time.LocalDate
 @Service
 class UserService(
     private val termsService: TermsService,
-    private val socialKakaoService: SocialKakaoService,
+    private val deviceService: DeviceService,
+    private val socialService: SocialService,
+    private val userSocialRepository: UserSocialRepository,
     private val userIdentityRepository: UserIdentityRepository,
     private val userProfileRepository: UserProfileRepository,
 ) {
@@ -25,21 +30,32 @@ class UserService(
         // 약관 동의 상태 검사
         val termsAgreementMap = termsService.validateTermsAgreements(termsAgreements)
 
-        // 소셜 연동 상태 검증
-        val sub = when (socialType) {
-            SocialType.KAKAO -> socialKakaoService.getSubWithExternalValidation(socialUuid)
-            SocialType.APPLE,
-            SocialType.NAVER,
-            SocialType.GOOGLE -> TODO()
-        }
+        // 소셜 연결 상태 검증
+        val sub = socialService.getSubWithValidation(socialType, socialUuid)
 
         // 본인인증 정보 교환
         val hashedCi = identityToken
         // TODO: identityToken 을 교환해서 결과 받아오고 해싱 처리 등..
 
-        // 이미 가입되어 있는 CI 라면, 기존 사용자 정보와 함께 205 리턴
-        userIdentityRepository.findByHashedCiAndDeletedAtIsNull(hashedCi)?.let { userIdentityEntity ->
-            throw RuntimeException("already exist ci")// TODO: 기존 사용자 정보와 함께 205 리턴
+        // 이미 가입되어 있는 CI 라면, 기존 사용자 정보와 함께 208 리턴
+        userIdentityRepository.findByHashedCiAndDeletedAtIsNull(hashedCi)?.run {
+            val userSocialEntity = mapOf(
+                SocialType.KAKAO to kakaoSub,
+                SocialType.APPLE to appleSub,
+                SocialType.NAVER to naverSub,
+                SocialType.GOOGLE to googleSub,
+            ).entries.first { it.value != null }.let { existUserSocial ->
+                userSocialRepository.findBySocialTypeAndSub(existUserSocial.key, existUserSocial.value!!)
+            }
+
+            throw AlreadySignupCiException(
+                AlreadySignupCiInfo(
+                    serviceUserId = serviceUserId!!,
+                    socialType = socialType,
+                    email = userSocialEntity?.email,
+                    lastLoginDate = deviceService.getLastLoginDateByServiceUserId(serviceUserId!!)!!,
+                )
+            )
         }
 
         // 가입 처리

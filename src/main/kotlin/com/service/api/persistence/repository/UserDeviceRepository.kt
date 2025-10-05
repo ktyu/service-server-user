@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository
 interface UserDeviceRepository : JpaRepository<JpaUserDeviceEntity, UserDeviceId> {
 
     fun findByIdAndDeletedAtIsNull(id: UserDeviceId): JpaUserDeviceEntity?
+
+    fun findAllById_ServiceUserId(serviceUserId: Long): List<JpaUserDeviceEntity>
 }

@@ -1,53 +1,43 @@
-package com.service.api.service
+package com.service.api.service.social
 
 import com.service.api.client.KakaoAccountInfo
 import com.service.api.client.KapiKakaoComClient
 import com.service.api.common.enum.SocialType
 import com.service.api.common.exception.InvalidSocialException
 import com.service.api.persistence.entity.JpaUserSocialEntity
-import com.service.api.persistence.repository.UserIdentityRepository
 import com.service.api.persistence.repository.UserSocialRepository
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.reactive.function.client.WebClientResponseException
 import java.time.LocalDateTime
-import java.util.*
 
-@Service
-class SocialKakaoService(
+internal class SocialKakaoService(
     private val userSocialRepository: UserSocialRepository,
-    private val userIdentityRepository: UserIdentityRepository,
-
     private val kapiKakaoComClient: KapiKakaoComClient,
-    @Value("\${api.kapi-kakao-com.app-id}") private val kakaoAppId: Int,
-    @Value("\${api.kapi-kakao-com.app-admin-key}") private val kakaoAppAdminKey: String,
+    private val kakaoAppId: Int,
+    private val kakaoAppAdminKey: String,
 ) {
     private val socialType = SocialType.KAKAO
     /**
      * (참고) 카카오는 어드민 키로 사용자 관리가 가능하므로, 엑세스 토큰과 리프레시 토큰의 유효성을 관리하지 않는다 (저장되어 있어도 유효하지 않을 수 있음)
      */
 
-    @Transactional
-    fun saveSocial(socialAccessToken: String, socialRefreshToken: String): Pair<String, Long?> {
-        val socialUuid = UUID.randomUUID().toString()
-        var serviceUserId: Long? = null
 
+    internal fun saveSocialStatus(socialUuid: String, socialAccessToken: String, socialRefreshToken: String): String {
         // 엑세스 토큰 검증하면서 sub 값 획득
         val kakaoSub = getKakaoSubByAccessToken(socialAccessToken)
 
         val kakaoAccountInfo = getKakaoAccountInfoByKakaoSubWithAdminKey(kakaoSub)
 
+        var userSocialEntityCreatedAt: LocalDateTime? = null
         val userSocialEntity = userSocialRepository.findBySocialTypeAndSub(socialType, kakaoSub)
             ?.run {
-                // 기존에 연결된 카카오계정 정보가 존재하면, serviceUserId 만 찾고 삭제
-                serviceUserId = userIdentityRepository.findByKakaoSubAndDeletedAtIsNull(kakaoSub)?.serviceUserId
+                // 기존에 연결된 소셜 계정 정보가 존재하면, 최초 연결된 시점과 seerUserId 를 기록하고 삭제
+                userSocialEntityCreatedAt = this.createdAt
                 userSocialRepository.deleteBySocialUuid(this.socialUuid)
                 userSocialRepository.flush()
-                null // null 로 변환해서 아래의 새 객체를 할당
+                null // null 로 변환해서 아래의 새 객체를 할당 (PK 값인 socialUuid 를 변경하므로 엔티티 삭제 후 재생성 필요)
             }
             ?: JpaUserSocialEntity(
-                // 새로 연결된 카카오계정
+                // 소셜 계정 정보 새로 저장
                 socialUuid = socialUuid,
                 socialType = socialType,
                 sub = kakaoSub,
@@ -56,18 +46,15 @@ class SocialKakaoService(
                 socialRefreshToken = socialRefreshToken,
                 email = kakaoAccountInfo.getEmail(),
                 isEmailVerified = kakaoAccountInfo.getIsEmailVerified(),
+                createdAt = userSocialEntityCreatedAt ?: LocalDateTime.now(),
             )
 
         userSocialRepository.save(userSocialEntity)
 
-        return Pair(socialUuid, serviceUserId)
+        return kakaoSub
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    fun getSubWithExternalValidation(socialUuid: String): String {
-        val userSocialEntity = userSocialRepository.findBySocialUuidAndSocialTypeAndDeletedAtIsNull(socialUuid, socialType)
-            ?: throw InvalidSocialException("socialUuid not found: $socialUuid (as $socialType)")
-
+    internal fun validateSocialStatus(userSocialEntity: JpaUserSocialEntity) {
         val kakaoAccountInfo = getKakaoAccountInfoByKakaoSubWithAdminKey(userSocialEntity.sub)
 
         userSocialRepository.save(userSocialEntity
@@ -81,8 +68,6 @@ class SocialKakaoService(
                 if (this.email != currentEmail) this.email = currentEmail
                 if (this.isEmailVerified != currentIsEmailVerified) this.isEmailVerified = currentIsEmailVerified
             })
-
-        return userSocialEntity.sub
     }
 
     private fun getKakaoSubByAccessToken(kakaoAccessToken: String): String {
@@ -100,11 +85,11 @@ class SocialKakaoService(
     }
 
     private fun getKakaoAccountInfoByKakaoSubWithAdminKey(kakaoSub: String) : KakaoAccountInfo {
-        // 카카오 서버로 사용자 정보 조회 API 호출 (앱의 어드민 키 사용) TODO: 이거만 호출하면 가입 미완료자 아닌걸로 간주되는지 테스트 한번 해보기.. 1~2일정도 지나도 refresh 토큰 유효하면 괜찮을듯 (https://devtalk.kakao.com/t/notice-unlink-for-users-who-have-not-completed-a-signup/111463)
+        // 카카오 서버로 사용자 정보 조회 API 호출 (앱의 어드민 키 사용)
         try {
             return kapiKakaoComClient.getKakaoAccountInfo("KakaoAK $kakaoAppAdminKey", kakaoSub.toLong())
-        } catch (e: Exception) {
-            throw InvalidSocialException()// TODO: 400에 연동 끊긴 유저 메세지면 InvalidSocialException 던지고 나머지는 그대로 던져서 500 나가게
+        } catch (ex: WebClientResponseException.BadRequest) {
+            throw InvalidSocialException("got 400 from kakao server. maybe disconnected kakao account!")
         }
     }
 

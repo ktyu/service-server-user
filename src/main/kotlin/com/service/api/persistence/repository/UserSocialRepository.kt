@@ -12,5 +12,7 @@ interface UserSocialRepository : JpaRepository<JpaUserSocialEntity, Long> {
 
     fun deleteBySocialUuid(socialUuid: String)
 
-    fun findBySocialUuidAndSocialTypeAndDeletedAtIsNull(socialUuid: String, socialType: SocialType): JpaUserSocialEntity?
+    fun findBySocialUuidAndDeletedAtIsNull(socialUuid: String): JpaUserSocialEntity?
+
+    fun findBySocialTypeAndSubAndDeletedAtIsNull(socialType: SocialType, sub: String): JpaUserSocialEntity?
 }

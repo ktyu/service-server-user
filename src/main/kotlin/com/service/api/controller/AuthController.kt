@@ -1,9 +1,8 @@
 package com.service.api.controller
 
-import com.service.api.common.enum.SocialType
 import com.service.api.dto.*
 import com.service.api.service.DeviceService
-import com.service.api.service.SocialKakaoService
+import com.service.api.service.social.SocialService
 import com.service.api.service.UserService
 import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.*
@@ -11,7 +10,7 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api")
 class AuthController(
-    private val socialKakaoService: SocialKakaoService,
+    private val socialService: SocialService,
     private val userService: UserService,
     private val deviceService: DeviceService,
 ) {
@@ -20,12 +19,7 @@ class AuthController(
     fun saveValidSocial(@Valid @RequestBody req: SaveValidSocialRequest): SaveValidSocialResponse {
         return try {
             with (req) {
-                val (socialUuid, serviceUserId) = when (socialType) {
-                    SocialType.KAKAO -> socialKakaoService.saveSocial(socialAccessToken!!, socialRefreshToken!!)
-                    SocialType.APPLE,
-                    SocialType.NAVER,
-                    SocialType.GOOGLE -> TODO()
-                }
+                val (socialUuid, serviceUserId) = socialService.saveSocialStatus(socialType, socialAccessToken, socialRefreshToken)
 
                 SaveValidSocialResponse(Social(socialType, socialUuid), serviceUserId)
             }

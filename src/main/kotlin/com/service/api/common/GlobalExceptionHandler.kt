@@ -1,6 +1,7 @@
 package com.service.api.common
 
 import com.service.api.common.exception.*
+import com.service.api.dto.Response
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
@@ -21,6 +22,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 class GlobalExceptionHandler {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    // ===== 208 중복 가입 거절 =====
+    @ExceptionHandler(AlreadySignupCiException::class)
+    fun handleAlreadySignupCiException(ex: AlreadySignupCiException): ResponseEntity<Response<AlreadySignupCiInfo>> {
+        log.debug("[208-ALREADY_REPORTED] {}", ex.message, ex)
+        return ResponseEntity.status(HttpStatus.ALREADY_REPORTED).body(Response(
+                success = false,
+                data = ex.data,
+                message = ex.message,
+                errorCode = ex.errorCode,
+        ))
+    }
 
     // ===== 401 토큰 만료 (토큰 갱신 필요) =====
     @ExceptionHandler(ExpiredTokenException::class)
