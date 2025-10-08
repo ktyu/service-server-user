@@ -1,12 +1,9 @@
-server:
-  port: 18080
-
 spring:
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/service?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&createDatabaseIfNotExist=true
     username: root
     password: qwerqwer
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: none
@@ -30,7 +27,7 @@ logging:
   level:
     com.service.api: DEBUG
     org.springframework.web.reactive.function.client: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: OFF
     org.hibernate.type.descriptor.sql.BasicBinder: OFF
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36}:%L - %msg%n"

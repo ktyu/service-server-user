@@ -14,6 +14,12 @@ class JpaUserDeviceEntity(
     @EmbeddedId
     val id: UserDeviceId,
 
+    @Column(name = "access_token_issued_at", nullable = false)
+    var accessTokenIssuedAt: Long = -1,
+
+    @Column(name = "refresh_token_issued_at", nullable = false)
+    var refreshTokenIssuedAt: Long = -1,
+
     @Column(name = "device_model", nullable = false, length = 32)
     var deviceModel: String,
 
@@ -26,12 +32,6 @@ class JpaUserDeviceEntity(
 
     @Column(name = "app_version", nullable = false, length = 8)
     var appVersion: String,
-
-    @Column(name = "access_token_issued_at", nullable = false)
-    var accessTokenIssuedAt: Long = -1,
-
-    @Column(name = "refresh_token_issued_at", nullable = false)
-    var refreshTokenIssuedAt: Long = -1,
 
     @Column(name = "last_login_at", nullable = false)
     var lastLoginAt: LocalDateTime,

@@ -246,8 +246,8 @@
     <details>
       <summary><span class="method GET">GET</span> <code>/v1/user</code> — 현재 사용자 정보 조회</summary>
       <div class="content">
-        <p>Authorization 헤더 필요. <code>attribute</code> 쿼리로 필요한 키만 선택 조회 가능.</p>
-        <p><b>attribute</b> 옵션: <code>profile</code> | <code>device</code> | <code>ageGroup</code> | <code>socialTypes</code></p>
+        <p>Authorization 헤더 필요. <code>attributes</code> 쿼리로 필요한 키만 선택 조회 가능.</p>
+        <p><b>attributes</b> 옵션: <code>profile</code> | <code>device</code> | <code>ageGroup</code> | <code>socialTypes</code></p>
         <h3>응답(200) 예</h3>
 <pre><code class="mono">{
   "profile": {
@@ -723,7 +723,7 @@ paths:
       description: 앱에서 필요한 현재 사용자 정보 조회
       parameters:
         - $ref: '#/components/parameters/AuthorizationHeader'
-        - name: attribute
+        - name: attributes
           description: 조회할 정보 리스트 (없으면 전부 조회)
           in: query
           style: form

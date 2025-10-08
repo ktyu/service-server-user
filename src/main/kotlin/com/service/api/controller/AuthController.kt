@@ -1,6 +1,8 @@
 package com.service.api.controller
 
+import com.service.api.common.ApiRequestContextHolder
 import com.service.api.dto.*
+import com.service.api.interceptor.Auth
 import com.service.api.service.DeviceService
 import com.service.api.service.social.SocialService
 import com.service.api.service.UserService
@@ -58,7 +60,9 @@ class AuthController(
     }
 
     @DeleteMapping("/v1/auth/logout")
+    @Auth
     fun logout() {
-        // TODO: 구현
+        val ctx = ApiRequestContextHolder.get()
+        deviceService.deleteDevice(ctx.serviceUserId!!, ctx.customDeviceId)
     }
 }

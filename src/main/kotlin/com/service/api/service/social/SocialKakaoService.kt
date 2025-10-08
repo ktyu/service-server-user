@@ -20,7 +20,6 @@ internal class SocialKakaoService(
      * (참고) 카카오는 어드민 키로 사용자 관리가 가능하므로, 엑세스 토큰과 리프레시 토큰의 유효성을 관리하지 않는다 (저장되어 있어도 유효하지 않을 수 있음)
      */
 
-
     internal fun saveSocialStatus(socialUuid: String, socialAccessToken: String, socialRefreshToken: String): String {
         // 엑세스 토큰 검증하면서 sub 값 획득
         val kakaoSub = getKakaoSubByAccessToken(socialAccessToken)
@@ -30,7 +29,7 @@ internal class SocialKakaoService(
         var userSocialEntityCreatedAt: LocalDateTime? = null
         val userSocialEntity = userSocialRepository.findBySocialTypeAndSub(socialType, kakaoSub)
             ?.run {
-                // 기존에 연결된 소셜 계정 정보가 존재하면, 최초 연결된 시점과 seerUserId 를 기록하고 삭제
+                // 기존에 연결된 소셜 계정 정보가 존재하면, 최초 연결된 시점과 serviceUserId 를 기록하고 삭제
                 userSocialEntityCreatedAt = this.createdAt
                 userSocialRepository.deleteBySocialUuid(this.socialUuid)
                 userSocialRepository.flush()
@@ -46,7 +45,7 @@ internal class SocialKakaoService(
                 socialRefreshToken = socialRefreshToken,
                 email = kakaoAccountInfo.getEmail(),
                 isEmailVerified = kakaoAccountInfo.getIsEmailVerified(),
-                createdAt = userSocialEntityCreatedAt ?: LocalDateTime.now(),
+                createdAt = userSocialEntityCreatedAt ?: LocalDateTime.now(), // 기존에 연결된 카카오계정이었다면 기존 정보의 createdAt 을 보존
             )
 
         userSocialRepository.save(userSocialEntity)
@@ -88,7 +87,7 @@ internal class SocialKakaoService(
         // 카카오 서버로 사용자 정보 조회 API 호출 (앱의 어드민 키 사용)
         try {
             return kapiKakaoComClient.getKakaoAccountInfo("KakaoAK $kakaoAppAdminKey", kakaoSub.toLong())
-        } catch (ex: WebClientResponseException.BadRequest) {
+        } catch (e: WebClientResponseException.BadRequest) {
             throw InvalidSocialException("got 400 from kakao server. maybe disconnected kakao account!")
         }
     }

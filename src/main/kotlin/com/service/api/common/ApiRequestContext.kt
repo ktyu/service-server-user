@@ -9,6 +9,7 @@ data class ApiRequestContext(
     val osVersion: String,
     val appVersion: String,
     val clientIp: String?,
+    var serviceUserId: Long? = null, // 인증 인터셉터를 타는 경우 채워짐
 )
 
 object ApiRequestContextHolder {
@@ -19,4 +20,3 @@ object ApiRequestContextHolder {
         tl.get() ?: error("ApiRequestContext is not set. Did you register the filter?")
     fun clear() = tl.remove()
 }
-

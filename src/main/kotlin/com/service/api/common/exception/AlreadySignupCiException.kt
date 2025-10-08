@@ -12,6 +12,6 @@ class AlreadySignupCiException(
 data class AlreadySignupCiInfo(
     val serviceUserId: Long,
     val socialType: SocialType,
-    val email: String?,
+    val email: String,
     val lastLoginDate: LocalDate,
 )

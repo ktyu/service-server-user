@@ -1,14 +1,63 @@
 package com.service.api.interceptor
 
-class AuthorizationInterceptor {
+import com.service.api.common.ApiRequestContextHolder
+import com.service.api.common.exception.ExpiredTokenException
+import com.service.api.common.exception.InvalidTokenException
+import com.service.api.service.DeviceService
+import jakarta.servlet.http.HttpServletRequest
+import org.aspectj.lang.ProceedingJoinPoint
+import org.aspectj.lang.annotation.Around
+import org.aspectj.lang.annotation.Aspect
+import org.springframework.http.HttpHeaders
+import org.springframework.stereotype.Component
+import org.springframework.web.context.request.RequestContextHolder
+import org.springframework.web.context.request.ServletRequestAttributes
 
-    /** TODO: [토큰 검증 로직]
-     * - 토큰의 exp가 지났으면 expired 응답 (토큰 재발급 필요)
-     * - 토큰의 service_user_id (다중디바이스 허용이면 +device_id) 로 user_device 조회
-     * 	- user_device row가 없으면 invalid 응답 (로그아웃 필요)
-     * 	- 토큰의 device_id & device_type과, DB상 user_device의 device_id & device_type이 다르면 invalid 응답 (로그아웃 필요)
-     * 	- 토큰의 iat와, DB상 user_device의 access_token_issued_at이 다르면 expired 응답 (토큰 재발급 필요)
-     * - 헤더의 device_version & app_version과, DB상 user_device의 device_version & app_version이 다르면 DB갱신 (이 로직은 실패 해도 로그만찍고 다음 로직 진행되어야함)
-     * - 문제 없으면 통과
-     */
+@Aspect
+@Component
+class AuthorizationInterceptor(
+    private val deviceService: DeviceService,
+) {
+
+    @Around("@annotation(com.service.api.interceptor.Auth)")
+    fun authorize(joinPoint: ProceedingJoinPoint): Any? {
+        val request = currentRequest()
+        val authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION)
+            ?: throw ExpiredTokenException("Authorization header is required.")
+
+        val accessToken = extractAccessToken(authorizationHeader)
+
+        // 요청 헤더, DB 디바이스 정보, 토큰 정보 3개 간 일치 여부 확인
+        with (deviceService.getServiceApiTokenPayload(accessToken)) {
+            val ctx = ApiRequestContextHolder.get()
+            ctx.serviceUserId = serviceUserId
+
+            deviceService.getDeviceVersionForAuth(serviceUserId, customDeviceId, deviceModel, osType)
+                ?.also { v ->
+                    // DB와 다른 버전 정보가 있으면 토큰 갱신하게 해서 DB 최신화를 유도
+                    if (v.accessTokenIat != iat || v.osVersion != ctx.osVersion || v.appVersion != ctx.appVersion)
+                        throw ExpiredTokenException("deviceVersion unmatched: $v != $iat/${ctx.osVersion}/${ctx.appVersion}")
+                }
+                ?: throw InvalidTokenException("deviceVersion not found: $serviceUserId/$customDeviceId")
+        }
+
+        return joinPoint.proceed()
+    }
+
+    private fun currentRequest(): HttpServletRequest {
+        val attributes = RequestContextHolder.getRequestAttributes() as? ServletRequestAttributes
+            ?: throw RuntimeException("HttpServletRequest is not available.")
+        return attributes.request
+    }
+
+    private fun extractAccessToken(headerValue: String): String {
+        val bearerPrefix = "Bearer "
+        if (!headerValue.startsWith(bearerPrefix, ignoreCase = true)) {
+            throw ExpiredTokenException("Authorization header must start with Bearer.")
+        }
+
+        return headerValue.substring(bearerPrefix.length).trim()
+            .takeIf { it.isNotEmpty() }
+            ?: throw ExpiredTokenException("Access token is missing in Authorization header.")
+    }
 }

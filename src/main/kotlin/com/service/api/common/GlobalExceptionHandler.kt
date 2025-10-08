@@ -26,40 +26,40 @@ class GlobalExceptionHandler {
     // ===== 208 중복 가입 거절 =====
     @ExceptionHandler(AlreadySignupCiException::class)
     fun handleAlreadySignupCiException(ex: AlreadySignupCiException): ResponseEntity<Response<AlreadySignupCiInfo>> {
-        log.debug("[208-ALREADY_REPORTED] {}", ex.message, ex)
+        log.debug("[208-ALREADY_REPORTED] {}", ex.message)
         return ResponseEntity.status(HttpStatus.ALREADY_REPORTED).body(Response(
-                success = false,
-                data = ex.data,
-                message = ex.message,
-                errorCode = ex.errorCode,
+            success = false,
+            data = ex.data,
+            message = ex.message,
+            errorCode = ex.errorCode,
         ))
     }
 
     // ===== 401 토큰 만료 (토큰 갱신 필요) =====
     @ExceptionHandler(ExpiredTokenException::class)
     fun handleUnauthorized(ex: ExpiredTokenException): ResponseEntity<Void> {
-        log.debug("[401-UNAUTHORIZED] {}", ex.message, ex)
+        log.debug("[401-UNAUTHORIZED] {}", ex.message)
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
     }
 
     // ===== 403 소셜 로그인이 유효하지 않음 =====
     @ExceptionHandler(InvalidSocialException::class)
     fun handleForbidden(ex: InvalidSocialException): ResponseEntity<Void> {
-        log.debug("[403-FORBIDDEN] {}", ex.message, ex)
+        log.debug("[403-FORBIDDEN] {}", ex.message)
         return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
     }
 
     // ===== 412 필수 약관 동의가 누락되거나, 약관 정보가 최신 약관 정보와 불일치 (약관 갯수, 버전 등 확인 필요) =====
     @ExceptionHandler(TermsAgreementException::class)
     fun handlePreconditionFailed(ex: TermsAgreementException): ResponseEntity<Void> {
-        log.debug("[412-PRECONDITION_FAILED] {}", ex.message, ex)
+        log.debug("[412-PRECONDITION_FAILED] {}", ex.message)
         return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build()
     }
 
     // ===== 423 토큰 정보 불일치 (강제 로그아웃 필요) =====
     @ExceptionHandler(InvalidTokenException::class)
     fun handleLocked(ex: InvalidTokenException): ResponseEntity<Void> {
-        log.debug("[423-LOCKED] {}", ex.message, ex)
+        log.debug("[423-LOCKED] {}", ex.message)
         return ResponseEntity.status(HttpStatus.LOCKED).build()
     }
 
@@ -76,7 +76,7 @@ class GlobalExceptionHandler {
         IllegalArgumentException::class,
     )
     fun handleBadRequest(ex: Exception): ResponseEntity<Void> {
-        log.debug("[400-BAD_REQUEST] {}", ex.message, ex)
+        log.debug("[400-BAD_REQUEST] {}", ex.message)
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
     }
 

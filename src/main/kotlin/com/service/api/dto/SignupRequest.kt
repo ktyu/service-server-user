@@ -1,6 +1,7 @@
 package com.service.api.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.service.api.model.Device
 import com.service.api.model.TermsAgreement
 
 data class SignupRequest(
