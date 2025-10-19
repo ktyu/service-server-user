@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.service.annotation.GetExchange
 import org.springframework.web.service.annotation.HttpExchange
+import org.springframework.web.service.annotation.PostExchange
 
 @HttpExchange
 interface KapiKakaoComClient {
@@ -15,6 +16,12 @@ interface KapiKakaoComClient {
 
     @GetExchange("/v2/user/me?target_id_type=user_id")
     fun getKakaoAccountInfo(
+        @RequestHeader("Authorization") adminKeyHeader: String,
+        @RequestParam("target_id") kakaoSub: Long,
+    ) : KakaoAccountInfo
+
+    @PostExchange("/v1/user/unlink?target_id_type=user_id")
+    fun unlinkKakaoAccount(
         @RequestHeader("Authorization") adminKeyHeader: String,
         @RequestParam("target_id") kakaoSub: Long,
     ) : KakaoAccountInfo

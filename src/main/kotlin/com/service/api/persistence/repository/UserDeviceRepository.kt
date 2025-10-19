@@ -12,8 +12,6 @@ interface UserDeviceRepository : JpaRepository<JpaUserDeviceEntity, UserDeviceId
 
     fun findByIdAndDeletedAtIsNull(id: UserDeviceId): JpaUserDeviceEntity?
 
-    fun findAllById_ServiceUserId(serviceUserId: Long): List<JpaUserDeviceEntity>
-
     @Modifying
     @Query("UPDATE JpaUserDeviceEntity d SET d.deletedAt = CURRENT_TIMESTAMP WHERE d.id.serviceUserId = :serviceUserId AND d.id.customDeviceId = :customDeviceId")
     fun markDeletedByServiceUserIdAndCustomDeviceId(serviceUserId: Long, customDeviceId: String)

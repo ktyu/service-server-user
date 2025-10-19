@@ -7,5 +7,5 @@ import com.service.api.persistence.entity.JpaUserProfileEntity
 interface UserProjection {
     val identity: JpaUserIdentityEntity
     val profile: JpaUserProfileEntity
-    val device: JpaUserDeviceEntity
+    val device: JpaUserDeviceEntity?
 }

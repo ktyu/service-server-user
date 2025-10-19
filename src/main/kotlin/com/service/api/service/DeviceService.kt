@@ -17,6 +17,7 @@ import com.service.api.util.Sha256HashingUtil
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.service.api.common.enum.OsType
 import com.service.api.common.exception.ExpiredTokenException
+import com.service.api.common.exception.ServiceUserNotFoundException
 import com.service.api.model.DeviceVersion
 import com.service.api.model.ServiceApiTokenPayload
 import org.slf4j.LoggerFactory
@@ -28,7 +29,6 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Base64
 import javax.crypto.Cipher
@@ -47,14 +47,17 @@ class DeviceService(
 
     @Transactional
     fun saveDevice(serviceUserId: Long, socialType: SocialType, socialUuid: String?, pushTokenType: PushTokenType, pushToken: String): Pair<String, String> {
-        val userIdentitySub = userIdentityRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)?.getSub(socialType)
-            ?: throw InvalidSocialException("sub in userIdentityEntity is null: $socialType/$serviceUserId")
+        val userIdentityEntity = userIdentityRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
+            ?: throw ServiceUserNotFoundException(serviceUserId)
+        val userIdentitySocialUuid = userIdentityEntity.getSocialUuid(socialType)
+            ?: throw InvalidSocialException("userIdentitySocialUuid is null")
+        val sub = socialService.getSub(userIdentitySocialUuid, socialType)
 
         if (socialUuid != null) {
-            // 소셜 연결 상태 및 userIdentity 매칭 검증
-            val sub = socialService.getSubWithValidation(socialType, socialUuid)
-            if (sub != userIdentitySub)
-                throw InvalidSocialException("sub not matched: $sub != $userIdentitySub")
+            // 소셜 연결 상태 검증
+            if (socialUuid != userIdentitySocialUuid)
+                throw InvalidSocialException("socialUuid not matched: $socialUuid != $userIdentitySocialUuid")
+            socialService.validateSocialUuid(socialUuid, socialType)
         }
 
         // 헤더 정보 가져와서 기존 저장된거 있나 보고 있으면 비교, 없으면 추가
@@ -85,10 +88,10 @@ class DeviceService(
 
         // 토큰 발급
         val iat = Instant.now().epochSecond
-        val (accessToken, refreshToken) = issueTokens(iat, serviceUserId, socialType, userIdentitySub, null)
+        val (accessToken, refreshToken) = issueTokens(iat, serviceUserId, socialType, sub, null)
+
         userDeviceEntity.accessTokenIssuedAt = iat
         userDeviceEntity.refreshTokenIssuedAt = iat
-
         userDeviceRepository.save(userDeviceEntity)
 
         return Pair(accessToken, refreshToken!!)
@@ -117,7 +120,7 @@ class DeviceService(
 
         // refreshToken 유효성 확인
         val refreshTokenPayload = try {(getServiceApiTokenPayload(refreshToken) as? ServiceApiRefreshTokenPayload)
-            ?: throw RuntimeException("class cast fail")
+            ?: throw InvalidTokenException("ServiceApiRefreshTokenPayload class cast fail")
         } catch (e: ExpiredTokenException) {
             throw InvalidTokenException("refresh token expired: ${e.message}")
         }
@@ -131,17 +134,13 @@ class DeviceService(
             if (this.deviceModel != userDeviceEntity.deviceModel || this.osType != userDeviceEntity.osType)
                 throw InvalidTokenException("deviceModel or osType changed: $this != $userDeviceEntity")
 
-            // userIdentity 매칭 검증
-            userIdentityRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)?.getSub(socialType)
-                ?.also { userIdentitySub ->
-                    if (sub != userIdentitySub)
-                        throw InvalidTokenException("sub in userIdentityEntity(serviceUserId=$serviceUserId) unmatched: $sub != $userIdentitySub")
-                }
-                ?: throw InvalidTokenException("sub in userIdentityEntity(serviceUserId=$serviceUserId) is null: $socialType")
-
             // 소셜 연결 상태 검증
-            socialService.getSocialUuidWithValidation(socialType, sub).also { socialUuid ->
-                log.info("social status validated: $socialUuid/$socialType/$sub")
+            socialService.validateSocialTypeAndSub(socialType, sub).also { socialUuid ->
+                // userIdentity 검증
+                val userIdentityEntity = userIdentityRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
+                    ?: throw ServiceUserNotFoundException(serviceUserId)
+                if (userIdentityEntity.getSocialUuid(socialType) != socialUuid)
+                    throw InvalidSocialException("socialUuid unmatched: ${userIdentityEntity.getSocialUuid(socialType)} != $socialUuid")
             }
 
             // 토큰 발급 및 iat 갱신
@@ -149,8 +148,6 @@ class DeviceService(
             val (newAccessToken, newRefreshToken) = issueTokens(newIat, serviceUserId, socialType, sub, exp)
             userDeviceEntity.accessTokenIssuedAt = newIat
             if (newRefreshToken != null) userDeviceEntity.refreshTokenIssuedAt = newIat
-
-            userDeviceRepository.save(userDeviceEntity)
 
             return Pair(newAccessToken, newRefreshToken)
         }
@@ -184,12 +181,6 @@ class DeviceService(
         return userDeviceRepository.findByIdAndDeletedAtIsNull(UserDeviceId(serviceUserId, customDeviceId))
             ?.takeIf { it.deviceModel == deviceModel && it.osType == osType }
             ?.run { DeviceVersion(accessTokenIssuedAt, osVersion, appVersion) }
-    }
-
-    internal fun getLastLoginDateByServiceUserId(serviceUserId: Long): LocalDate? {
-        return userDeviceRepository.findAllById_ServiceUserId(serviceUserId)
-            .maxOfOrNull { it.lastLoginAt }
-            ?.toLocalDate()
     }
 
     private fun issueTokens(iat: Long, serviceUserId: Long, socialType: SocialType, sub: String, existingRefreshTokenExp: Long?): Pair<String, String?> {

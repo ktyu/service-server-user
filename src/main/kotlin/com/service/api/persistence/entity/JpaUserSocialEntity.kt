@@ -47,7 +47,4 @@ class JpaUserSocialEntity(
     @Version
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now(),
-
-    @Column(name = "deleted_at")
-    var deletedAt: LocalDateTime? = null
 )

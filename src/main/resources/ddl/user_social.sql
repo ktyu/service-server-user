@@ -9,7 +9,6 @@ CREATE TABLE user_social (
     is_email_verified BOOLEAN NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '연결 상태 최종 확인 시간',
-    deleted_at DATETIME NULL,
     UNIQUE KEY uq_social_type_and_sub (social_type, sub)
 )
     ENGINE=InnoDB

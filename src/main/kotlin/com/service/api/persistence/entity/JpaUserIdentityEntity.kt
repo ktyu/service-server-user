@@ -11,10 +11,10 @@ import java.time.LocalDateTime
     name = "user_identity",
     uniqueConstraints = [
         UniqueConstraint(name = "uq_hased_ci", columnNames = ["hashed_ci"]),
-        UniqueConstraint(name = "uq_kakao_sub", columnNames = ["kakao_sub"]),
-        UniqueConstraint(name = "uq_apple_sub", columnNames = ["apple_sub"]),
-        UniqueConstraint(name = "uq_naver_sub", columnNames = ["naver_sub"]),
-        UniqueConstraint(name = "uq_google_sub", columnNames = ["google_sub"]),
+        UniqueConstraint(name = "uq_kakao_uuid", columnNames = ["kakao_uuid"]),
+        UniqueConstraint(name = "uq_apple_uuid", columnNames = ["apple_uuid"]),
+        UniqueConstraint(name = "uq_naver_uuid", columnNames = ["naver_uuid"]),
+        UniqueConstraint(name = "uq_google_uuid", columnNames = ["google_uuid"]),
     ]
 )
 class JpaUserIdentityEntity(
@@ -23,11 +23,8 @@ class JpaUserIdentityEntity(
     @Column(name = "service_user_id")
     var serviceUserId: Long? = null,
 
-    @Column(name = "hashed_ci", nullable = false, length = 128)
-    val hashedCi: String,
-
-    @Column(name = "mobile_phone_number", nullable = false, length = 16)
-    val mobilePhoneNumber: String,
+    @Column(name = "hashed_ci", length = 64)
+    var hashedCi: String?,
 
     @Column(name = "is_foreigner", nullable = false)
     val isForeigner: Boolean,
@@ -39,17 +36,17 @@ class JpaUserIdentityEntity(
     @Column(name = "birthdate", nullable = false)
     val birthdate: LocalDate,
 
-    @Column(name = "kakao_sub")
-    var kakaoSub: String? = null,
+    @Column(name = "kakao_uuid", columnDefinition = "CHAR(36)")
+    var kakaoUuid: String? = null,
 
-    @Column(name = "apple_sub")
-    var appleSub: String? = null,
+    @Column(name = "apple_uuid", columnDefinition = "CHAR(36)")
+    var appleUuid: String? = null,
 
-    @Column(name = "naver_sub")
-    var naverSub: String? = null,
+    @Column(name = "naver_uuid", columnDefinition = "CHAR(36)")
+    var naverUuid: String? = null,
 
-    @Column(name = "google_sub")
-    var googleSub: String? = null,
+    @Column(name = "google_uuid", columnDefinition = "CHAR(36)")
+    var googleUuid: String? = null,
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
@@ -62,12 +59,38 @@ class JpaUserIdentityEntity(
     var deletedAt: LocalDateTime? = null
 ) {
 
-    fun getSub(socialType: SocialType): String? {
+    fun getSocialUuid(socialType: SocialType): String? {
         return when (socialType) {
-            SocialType.KAKAO -> this.kakaoSub
-            SocialType.APPLE -> this.appleSub
-            SocialType.NAVER -> this.naverSub
-            SocialType.GOOGLE -> this.googleSub
+            SocialType.KAKAO -> kakaoUuid
+            SocialType.APPLE -> appleUuid
+            SocialType.NAVER -> naverUuid
+            SocialType.GOOGLE -> googleUuid
         }
+    }
+
+    fun setSocialUuid(socialType: SocialType, socialUuid: String?) {
+        when (socialType) {
+            SocialType.KAKAO -> kakaoUuid = socialUuid
+            SocialType.APPLE -> appleUuid = socialUuid
+            SocialType.NAVER -> naverUuid = socialUuid
+            SocialType.GOOGLE -> googleUuid = socialUuid
+        }
+    }
+
+    fun getExistSocials(): List<Pair<SocialType, String>> {
+        return buildList {
+            SocialType.entries.forEach { socialType ->
+                when (socialType) {
+                    SocialType.KAKAO -> kakaoUuid?.let { add(Pair(socialType, it)) }
+                    SocialType.APPLE -> appleUuid?.let { add(Pair(socialType, it)) }
+                    SocialType.NAVER -> naverUuid?.let { add(Pair(socialType, it)) }
+                    SocialType.GOOGLE -> googleUuid?.let { add(Pair(socialType, it)) }
+                }
+            }
+        }
+    }
+
+    fun getLatestSocialUuid(): String? {
+        return getExistSocials().maxOfOrNull { it.second }
     }
 }

@@ -19,21 +19,17 @@ class AuthController(
 
     @PostMapping("/v1/auth/social")
     fun saveValidSocial(@Valid @RequestBody req: SaveValidSocialRequest): SaveValidSocialResponse {
-        return try {
-            with (req) {
-                val (socialUuid, serviceUserId) = socialService.saveSocialStatus(socialType, socialAccessToken, socialRefreshToken)
+        return with (req) {
+            val (socialUuid, serviceUserId) = socialService.saveSocialStatus(socialType, socialAccessToken, socialRefreshToken)
 
-                SaveValidSocialResponse(Social(socialType, socialUuid), serviceUserId)
-            }
-        } catch (e: NullPointerException) {
-            throw IllegalArgumentException(e.message)
+            SaveValidSocialResponse(Social(socialType, socialUuid), serviceUserId)
         }
     }
 
     @PostMapping("/v1/auth/signup")
     fun signup(@Valid @RequestBody req: SignupRequest): SignupResponse {
         return with (req) {
-            val serviceUserId = userService.createUser(req.termsAgreements, social.socialType, social.socialUuid, req.identity.MDL_TKN)
+            val serviceUserId = userService.createUser(termsAgreements, social.socialType, social.socialUuid, identity.MDL_TKN)
             val (accessToken, refreshToken) = deviceService.saveDevice(serviceUserId, social.socialType, null, device.pushTokenType, device.pushToken)
 
             SignupResponse(serviceUserId, accessToken, refreshToken)

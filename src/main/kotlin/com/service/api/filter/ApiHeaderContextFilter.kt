@@ -3,6 +3,7 @@ package com.service.api.filter
 import com.service.api.common.ApiRequestContext
 import com.service.api.common.ApiRequestContextHolder
 import com.service.api.common.enum.OsType
+import com.service.api.util.StringUtil.isValidUuid
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -65,17 +66,6 @@ class ApiHeaderContextFilter : OncePerRequestFilter() {
             res.resetBuffer()          // 혹시 이미 쓰인 내용 제거
             res.status = status        // 원하는 상태코드 지정
             res.flushBuffer()          // 응답 확정 → 체인 중단 필요
-        }
-    }
-
-    private fun String?.isValidUuid(): Boolean {
-        if (this.isNullOrBlank() || this.length != 36) return false
-
-        return try {
-            UUID.fromString(this)
-            true
-        } catch (e: IllegalArgumentException) {
-            false
         }
     }
 

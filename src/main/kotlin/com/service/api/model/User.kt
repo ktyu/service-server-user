@@ -10,6 +10,7 @@ data class User(
     val profile: Profile?,
     val device: Device?,
     val voterType: VoterType?,
+    val email: String?,
     val ageGroup: AgeGroup?,
     val socialTypes: List<SocialType>?,
 )
@@ -18,7 +19,6 @@ data class User(
 data class Profile(
     val nickname: String?,
     val imageUrl: String?,
-    val email: String?,
     val district: District?,
     val interestFields: Set<InterestField>?,
     val interestLevel: InterestLevel?,
