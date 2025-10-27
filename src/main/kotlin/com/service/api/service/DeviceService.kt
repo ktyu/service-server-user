@@ -23,6 +23,7 @@ import com.service.api.model.ServiceApiTokenPayload
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -151,6 +152,14 @@ class DeviceService(
 
             return Pair(newAccessToken, newRefreshToken)
         }
+    }
+
+    @Transactional
+    fun updateDevicePushToken(serviceUserId: Long, customDeviceId: String, pushTokenType: PushTokenType, pushToken: String) {
+        val userDeviceEntity = userDeviceRepository.findByIdAndDeletedAtIsNull(UserDeviceId(serviceUserId, customDeviceId))
+            ?: throw InvalidTokenException("UserDeviceEntity not found: ${serviceUserId}/${customDeviceId}")
+        userDeviceEntity.pushTokenType = pushTokenType
+        userDeviceEntity.pushToken = pushToken
     }
 
     @Transactional

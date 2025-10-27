@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.service.api"
-version = "0.0.2-SNAPSHOT"
+version = "0.0.5-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -24,6 +24,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("com.google.firebase:firebase-admin:9.7.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.uuid:java-uuid-generator:5.1.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect")

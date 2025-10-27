@@ -22,9 +22,6 @@ data class JpaTermsEntity(
     @Column(name = "title", nullable = false, length = 64)
     val title: String,
 
-    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
-    val content: String,
-
     @Column(name = "content_link", nullable = false, length = 256)
     val contentLink: String,
 

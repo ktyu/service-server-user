@@ -6,6 +6,5 @@ data class Terms(
     val displayOrder: Int,
     val isMandatory: Boolean,
     val title: String,
-    val content: String,
     val contentLink: String,
 )

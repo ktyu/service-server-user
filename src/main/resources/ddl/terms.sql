@@ -4,7 +4,6 @@ CREATE TABLE terms (
     display_order INT NOT NULL UNIQUE COMMENT '노출 순서 (음수면 노출하지 않음)',
     is_mandatory BOOLEAN NOT NULL,
     title VARCHAR(64) NOT NULL,
-    content TEXT NOT NULL,
     content_link VARCHAR(256) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

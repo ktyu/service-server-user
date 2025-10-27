@@ -9,12 +9,14 @@ import org.springframework.stereotype.Repository
 @Repository
 interface UserProfileRepository : JpaRepository<JpaUserProfileEntity, Long> {
 
+    fun findByServiceUserIdAndDeletedAtIsNull(serviceUserId: Long): JpaUserProfileEntity?
+
+    fun existsByNickname(nickname: String): Boolean
+
     @Modifying
-    @Query(
-        "UPDATE JpaUserProfileEntity p SET " +
+    @Query("UPDATE JpaUserProfileEntity p SET " +
             "p.nickname = CONCAT(p.nickname, '_DELETED_', p.serviceUserId), " +
             "p.deletedAt = CURRENT_TIMESTAMP " +
-            "WHERE p.serviceUserId = :serviceUserId"
-    )
+            "WHERE p.serviceUserId = :serviceUserId")
     fun markDeletedByServiceUserId(serviceUserId: Long)
 }

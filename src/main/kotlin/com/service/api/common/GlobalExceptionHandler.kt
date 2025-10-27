@@ -29,13 +29,6 @@ class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
     }
 
-    // ===== 412 필수 약관 동의가 누락되거나, 약관 정보가 최신 약관 정보와 불일치 (약관 갯수, 버전 등 확인 필요) =====
-    @ExceptionHandler(TermsAgreementException::class)
-    fun handlePreconditionFailed(ex: TermsAgreementException): ResponseEntity<Void> {
-        log.debug("[412-PRECONDITION_FAILED] {}", ex.message)
-        return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build()
-    }
-
     // ===== 423 유효하지 않은 유저/인증 상태 (강제 로그아웃 필요) =====
     @ExceptionHandler(
         InvalidTokenException::class,
@@ -58,6 +51,8 @@ class GlobalExceptionHandler {
         HttpRequestMethodNotSupportedException::class,
 
         IllegalArgumentException::class,
+        TermsAgreementException::class,
+        Under14SignupFailException::class,
     )
     fun handleBadRequest(ex: Exception): ResponseEntity<Void> {
         log.debug("[400-BAD_REQUEST] {}", ex.message)

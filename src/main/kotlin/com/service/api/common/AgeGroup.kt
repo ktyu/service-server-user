@@ -17,8 +17,12 @@ data class AgeGroup(val value: String) {
             "80대 이상",
         )
 
+        fun getAge(birthdate: LocalDate): Int {
+            return Period.between(birthdate, LocalDate.now()).years
+        }
+
         fun fromBirthdate(birthdate: LocalDate): AgeGroup {
-            val age = Period.between(birthdate, LocalDate.now()).years
+            val age = getAge(birthdate)
             return AgeGroup(when {
                 age < 18 -> "18세 미만"
                 age < 20 -> "10대"

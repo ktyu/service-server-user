@@ -23,6 +23,10 @@ api:
     app-id: 1
     app-admin-key: a
 
+firebase:
+  credentials: |
+    e30
+
 logging:
   level:
     com.service.api: DEBUG

@@ -22,7 +22,7 @@ data class Profile(
     val district: District?,
     val interestFields: Set<InterestField>?,
     val interestLevel: InterestLevel?,
-    val termsAgreements: Map<String, Int>?,
+    val termsAgreements: List<TermsAgreement>?,
 )
 
 data class TermsAgreement(
@@ -31,6 +31,6 @@ data class TermsAgreement(
 )
 
 data class Device(
-    val pushTokenType: PushTokenType = PushTokenType.FCM_REGISTRATION_TOKEN,
+    val pushTokenType: PushTokenType,
     val pushToken: String,
 )

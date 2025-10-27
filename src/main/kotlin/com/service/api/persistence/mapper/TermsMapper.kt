@@ -11,7 +11,6 @@ object TermsMapper {
             displayOrder = entity.displayOrder,
             isMandatory = entity.isMandatory,
             title = entity.title,
-            content = entity.content,
             contentLink = entity.contentLink,
         )
 }

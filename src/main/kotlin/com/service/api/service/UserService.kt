@@ -1,10 +1,15 @@
 package com.service.api.service
 
+import com.google.firebase.auth.FirebaseAuth
 import com.service.api.common.AgeGroup
 import com.service.api.common.enum.GenderType
+import com.service.api.common.enum.OsType
 import com.service.api.common.enum.SocialType
 import com.service.api.common.enum.VoterType
 import com.service.api.common.exception.ServiceUserNotFoundException
+import com.service.api.common.exception.Under14SignupFailException
+import com.service.api.model.Device
+import com.service.api.model.Profile
 import com.service.api.model.TermsAgreement
 import com.service.api.model.User
 import com.service.api.persistence.entity.JpaUserIdentityEntity
@@ -21,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Period
+import java.util.*
 import kotlin.random.Random
 
 @Service
@@ -50,6 +56,14 @@ class UserService(
         }
     }
 
+    fun isExistingNickname(nickname: String): Boolean {
+        return userProfileRepository.existsByNickname(nickname)
+    }
+
+    fun isAllowedNickname(nickname: String): Boolean {
+        return nickname !in listOf("관리자", "운영자") // TODO: 정확한 정책 정해지면 구현 필요
+    }
+
     @Transactional
     fun createUser(termsAgreements: List<TermsAgreement>, socialType: SocialType, socialUuid: String, identityToken: String): Long {
         // 약관 동의 상태 검사
@@ -60,9 +74,23 @@ class UserService(
 
         // TODO: MDL_TKN(identityToken) 값 보내서 본인인증 결과 받아오고 가공하기
         val hashedCi = Sha256HashingUtil.sha256Hex(identityToken, "service")
-        val isForeigner = false
-        val gender = GenderType.M
-        val birthdate = LocalDate.now()
+        val isForeigner: Boolean
+        val gender: GenderType
+        val birthdate: LocalDate
+        try {
+            val num = String(Base64.getUrlDecoder().decode(identityToken)).split("@")[1].split("-")
+            if ((num[1].toInt() in 1..8).not()) throw RuntimeException()
+            isForeigner = num[1].toInt() >= 5 // 뒷자리가 5~8 면 외국인
+            gender = if (num[1].toInt() % 2 == 0) GenderType.F else GenderType.M
+            birthdate = LocalDate.parse("${if (num[1].toInt() <= 2) 19 else 20}${num[0]}", java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+        } catch (e: Exception) {
+            throw IllegalArgumentException("invalid MDL_TKN: $identityToken")
+        }
+
+        // 만 14세 미만은 가입시도 하면 안됨
+        if (AgeGroup.getAge(birthdate) < 14) {
+            throw Under14SignupFailException("age is smaller than 14")
+        }
 
         val userIdentityEntity = userIdentityRepository.findByHashedCi(hashedCi)
             ?.apply {
@@ -106,11 +134,28 @@ class UserService(
                 serviceUserId = userIdentityEntity.serviceUserId!!,
                 nickname = "랜덤닉네임${Random.nextInt()}", // TODO: 최초 닉네임 랜덤 생성 정책 정의 및 반영 필요
                 termsAgreements = termsAgreementMap,
-                // TODO: 프로필 이미지 정보도?
             )
         userProfileRepository.save(userProfileEntity)
 
         return userIdentityEntity.serviceUserId!!
+    }
+
+    @Transactional
+    fun updateUser(serviceUserId: Long, customDeviceId: String, profile: Profile?, device: Device?) {
+        if (profile != null) {
+            val userProfileEntity = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
+                ?: throw ServiceUserNotFoundException(serviceUserId)
+            profile.nickname?.trim()?.takeIf { isAllowedNickname(it) && isExistingNickname(it).not() }!!.let { userProfileEntity.nickname = it }
+            profile.imageUrl?.let { userProfileEntity.imageUrl = it }
+            profile.district?.let { userProfileEntity.district = it }
+            profile.interestFields?.let { userProfileEntity.interestFields = it }
+            profile.interestLevel?.let { userProfileEntity.interestLevel = it }
+            profile.termsAgreements?.let { userProfileEntity.termsAgreements = termsService.validateTermsAgreements(it) }
+        }
+
+        if (device != null) {
+            deviceService.updateDevicePushToken(serviceUserId, customDeviceId, device.pushTokenType, device.pushToken)
+        }
     }
 
     @Transactional
@@ -127,6 +172,15 @@ class UserService(
         userProfileRepository.markDeletedByServiceUserId(serviceUserId)
 
         deviceService.deleteAllDevice(serviceUserId)
+    }
+
+    fun makeFirebaseCustomToken(serviceUserId: Long, customDeviceId: String, osType: OsType, deviceModel: String): String {
+        val claims = mapOf(
+            "customDeviceId" to customDeviceId,
+            "osType" to osType.name,
+            "deviceModel" to deviceModel,
+        )
+        return FirebaseAuth.getInstance().createCustomToken(serviceUserId.toString(), claims)
     }
 
     private fun makeVoterType(isProfileCompleted: Boolean, isForeigner: Boolean, birthdate: LocalDate): VoterType {
