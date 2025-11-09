@@ -41,6 +41,9 @@ Thumbs.db
 *.log
 logs/
 
+# Personal README files
+README-*.md
+
 # Runtime data
 pids
 *.pid
@@ -60,6 +63,11 @@ node_modules/
 
 # Kotlin
 *.class
+
+# Package Files
+*.jar
+*.war
+*.ear
 
 # virtual machine crash logs
 hs_err_pid*
@@ -84,3 +92,5 @@ application-*.yml
 
 # Claude settings
 .claude/settings.local.json
+
+*.pem
