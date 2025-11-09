@@ -4,8 +4,8 @@
 `com.service.api` 패키지 아래에 REST API, 외부 소셜 사이트 연동, 토큰 발급 및 검증, 약관 관리 등 핵심 로직이 구성되어 있습니다.
 
 ## API 명세 문서
-- ### [API 명세 문서 바로가기](https://ktyu.github.io/service-server-user/api_spec.html)
-  - `docs/api_spec.html` 파일을 GitHub Pages로 제공
+- ### [API 명세 문서 바로가기](https://ktyu.github.io/service-server-user/swagger-ui.html)
+  - `docs/swagger-ui.html` 파일을 GitHub Pages로 제공
 - ### (참고) API 요청 공통 헤더
 | Header | 설명                         | 비고 |
 | --- |----------------------------| --- |

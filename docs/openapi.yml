@@ -1,0 +1,855 @@
+openapi: 3.0.0
+info:
+  title: SERVICE 서비스 서버 API
+  version: 2025.11.07
+  description: |-
+    SERVICE 서비스 제공을 위한 서버 API 명세 입니다.
+
+    ---
+    ## 앱에서 모든 API 호출시 필수로 포함할 헤더
+      - **X-Service-Custom-Device-Id**
+        - UUID 형식의 string (앱 최초 실행시 랜덤 생성 후, 항상 동일해야함)
+      - **X-Service-Device-Model**
+        - 32자 이하의 string (동일 단말이라면, 항상 동일해야함)
+      - **X-Service-Os-Type**
+        - "iOS" 또는 "Android"
+      - **X-Service-Os-Version**
+        - 32자 이하의 string
+      - **X-Service-App-Version**
+        - "x.y.z" 형태의 string (x, y, z 는 각각 99 이하의 정수)
+    ---
+  termsOfService: https://github.com/ktyu/service-server-user
+
+servers:
+  - url: https://dev-alb.service.co.kr/api
+
+security:
+  - XServiceCustomDeviceId: []
+  - XServiceDeviceModel: []
+  - XServiceOsType: []
+  - XServiceOsVersion: []
+  - XServiceAppVersion: []
+
+tags:
+  - name: auth
+    description: 서비스 인증 관련 API
+  - name: user
+    description: 사용자 정보 관련 API
+  - name: terms
+    description: 약관 정보 관련 API
+
+paths:
+  /v1/auth/social:
+    post:
+      tags:
+        - auth
+      summary: 앱에서 SDK로 소셜 로그인한 정보 검증
+      description: |-
+        회원가입/로그인 API 호출 전, 소셜 로그인 수행 결과를 전송해서 소셜 UUID 획득 필요
+
+        **(중요) 소셜 사이트에 따라 필수로 포함해야하는 필드가 다르므로, 스키마의 required 속성 대신 아래 설명을 참고**
+          - 카카오 : socialType, socialAccessToken, socialRefreshToken
+          - 애플 : ?
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                socialType:
+                  $ref: '#/components/schemas/SocialType'
+                socialAccessToken:
+                  type: string
+                  description: 소셜 사이트에서 발급해준 엑세스 토큰
+                socialRefreshToken:
+                  type: string
+                  description: 소셜 사이트에서 발급해준 리프레시 토큰
+#                authorizationCode:
+#                  type: string
+#                  description: 소셜 사이트에서 발급해준 인증 코드
+#                nonce:
+#                  type: string
+#                  description: 소셜 사이트 로그인 요청시 클라가 생성한 nonce 값
+#                state:
+#                  type: string
+#                  description: 소셜 사이트 로그인 요청시 클라가 생성한 state 값
+              required:
+                - socialType
+      responses:
+        '200':
+          description: |-
+            소셜 로그인 정보 저장 및 검증 성공
+
+            **(참고) serviceUserId 필드는 이미 연동된 소셜 로그인 정보인 경우에만 포함되며, 미연동된 소셜 로그인 정보라면 serviceUserId 필드 자체가 포함되지 않음**
+            - serviceUserId 필드가 **없으면** -> 약관 동의 및 본인인증 진행하고, **회원가입** 요청 필요
+            - serviceUserId 필드가 **있으면** -> **로그인** 요청 필요
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          social:
+                            $ref: '#/components/schemas/Social'
+                          serviceUserId:
+                            $ref: '#/components/schemas/ServiceUserId'
+                        required:
+                          - social
+              examples:
+                existingUserOk:
+                  summary: 이미 가입된 사용자의 응답 예시
+                  value:
+                    code: SUCCESS
+                    message: Success
+                    content:
+                      social:
+                        socialType: KAKAO
+                        socialUuid: "827fd25a-863d-4d4d-b624-5ad55f1fa32f"
+                      serviceUserId: 1
+                newUserOk:
+                  summary: 신규 가입 대상자의 응답 예시 (serviceUserId 없음)
+                  value:
+                    code: SUCCESS
+                    message: Success
+                    content:
+                      social:
+                        socialType: APPLE
+                        socialUuid: "d47e3e9c-842d-4edb-94c1-73a2abf85b88"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+  /v1/auth/signup:
+    post:
+      tags:
+        - auth
+      summary: 회원가입 (신규 사용자)
+      description: 소셜 로그인한 정보 검증으로 serviceUserId 를 획득하지 못했다면(=미가입자), 약관 동의 및 본인인증 진행한 후에 회원가입 호출
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                social:
+                  $ref: '#/components/schemas/Social'
+                termsAgreements:
+                  $ref: '#/components/schemas/TermsAgreements'
+                device:
+                  $ref: '#/components/schemas/Device'
+              required:
+                - social
+                - termsAgreements
+                - device
+      responses:
+        '200':
+          description: 가입 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/SuccessResponse'
+                - type: object
+                  properties:
+                    content:
+                      type: object
+                      properties:
+                        serviceUserId:
+                          $ref: '#/components/schemas/ServiceUserId'
+                        accessToken:
+                          $ref: '#/components/schemas/AccessToken'
+                        refreshToken:
+                          $ref: '#/components/schemas/RefreshToken'
+                      required:
+                        - serviceUserId
+                        - accessToken
+                        - refreshToken
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+  /v1/auth/login:
+    post:
+      tags:
+        - auth
+      summary: 로그인 (기존 사용자)
+      description: 소셜 로그인한 정보 검증으로 serviceUserId 를 획득했다면, 로그인 호출
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceUserId:
+                  $ref: '#/components/schemas/ServiceUserId'
+                social:
+                  $ref: '#/components/schemas/Social'
+                device:
+                  $ref: '#/components/schemas/Device'
+              required:
+                - serviceUserId
+                - social
+                - device
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          accessToken:
+                            $ref: '#/components/schemas/AccessToken'
+                          refreshToken:
+                            $ref: '#/components/schemas/RefreshToken'
+                        required:
+                          - accessToken
+                          - refreshToken
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+  /v1/auth/refresh:
+    put:
+      tags:
+        - auth
+      summary: 서비스 인증 토큰 갱신
+      description: 엑세스 토큰 만료시(=401 응답 수신시) 호출
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceUserId:
+                  $ref: '#/components/schemas/ServiceUserId'
+                refreshToken:
+                  $ref: '#/components/schemas/RefreshToken'
+              required:
+                - serviceUserId
+                - refreshToken
+      responses:
+        '200':
+          description: |-
+            토큰 갱신 성공
+
+            **(참고) refreshToken 필드는 리프레시 토큰이 갱신되는 경우에만 포함되며, 갱신되지 않는 경우엔 refreshToken 필드 자체가 포함되지 않음**
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          accessToken:
+                            $ref: '#/components/schemas/AccessToken'
+                          refreshToken:
+                            $ref: '#/components/schemas/RefreshToken'
+                        required:
+                          - accessToken
+        '403':
+          description: 토큰 갱신 실패 (강제 로그아웃 필요)
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+  /v1/auth/identity:
+    post:
+      tags:
+        - auth
+      summary: 본인인증 결과 등록
+      description: 본인인증 수행 후 응답 받은 결과 등록하며, 계정 병합(serviceUserId & 서비스 인증 토큰 변경)이 일어날 수 있음
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceUserId:
+                  $ref: '#/components/schemas/ServiceUserId'
+                refreshToken:
+                  $ref: '#/components/schemas/RefreshToken'
+                MDL_TKN:
+                  type: string
+                  description: 본인인증 대행사(KCB)에서 전달된 값
+                  example: 8be1238534e34249add35f17a5b3ada3
+              required:
+                - serviceUserId
+                - refreshToken
+                - MDL_TKN
+      responses:
+        '200':
+          description: |-
+            본인인증 결과 등록 성공
+
+            **(참고) isMerged 가 true 인 경우, serviceUserId, accessToken, refreshToken 을 응답된 값으로 사용 필요**
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          isMerged:
+                            type: boolean
+                            description: 본인인증 완료하면서 계정이 통합된 경우 true
+                          serviceUserId:
+                            $ref: '#/components/schemas/ServiceUserId'
+                          accessToken:
+                            $ref: '#/components/schemas/AccessToken'
+                          refreshToken:
+                            $ref: '#/components/schemas/RefreshToken'
+                        required:
+                          - isMerged
+              examples:
+                normalOk:
+                  summary: 등록 성공 (계정 병합 미발생)
+                  value:
+                    code: SUCCESS
+                    message: Success
+                    content:
+                      isMerged: false
+                mergedOk:
+                  summary: 등록 성공 (계정 병합 발생)
+                  value:
+                    code: SUCCESS
+                    message: Success
+                    content:
+                      isMerged: true
+                      serviceUserId: 1
+                      accessToken: string
+                      refreshToken: string
+  /v1/auth/logout:
+    delete:
+      tags:
+        - auth
+      summary: 로그아웃
+      description: 현 디바이스 정보 삭제 및 인증 파기
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+      responses:
+        '200':
+          description: 로그아웃 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                logoutOk:
+                  summary: 로그아웃 성공
+                  value:
+                    code: SUCCESS
+                    message: Success
+        '401':
+          $ref: "#/components/responses/401Unauthorized"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+
+  /v1/user:
+    get:
+      tags:
+        - user
+      summary: 현재 사용자 정보 조회
+      description: 현재 사용자 정보 전체 조회
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          profile:
+                            $ref: '#/components/schemas/Profile'
+                          device:
+                            $ref: '#/components/schemas/Device'
+                          voterType:
+                            $ref: '#/components/schemas/VoterType'
+                          ageGroup:
+                            $ref: '#/components/schemas/AgeGroup'
+                          socialAccounts:
+                            type: array
+                            description: 연동된 소셜 계정 정보 리스트 (첫번째 원소가 현재 로그인된 소셜 계정)
+                            items:
+                              $ref: '#/components/schemas/SocialAccount'
+        '401':
+          $ref: "#/components/responses/401Unauthorized"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+    put:
+      tags:
+        - user
+      summary: 현재 사용자 정보 수정
+      description: 변경을 원하는 정보만 채워서 요청 (입력 안된 키 값들은 기존 정보 유지)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  $ref: '#/components/schemas/Profile'
+                device:
+                  $ref: '#/components/schemas/Device'
+      responses:
+        '200':
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                modifyUserOk:
+                  summary: 수정 성공
+                  value:
+                    code: SUCCESS
+                    message: Success
+        '401':
+          $ref: "#/components/responses/401Unauthorized"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+    delete:
+      tags:
+        - user
+      summary: 현재 사용자 삭제 (회원탈퇴)
+      description: 사용자 및 디바이스 정보 일괄 삭제
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+      responses:
+        '200':
+          description: 탈퇴 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                modifyUserOk:
+                  summary: 탈퇴 성공
+                  value:
+                    code: SUCCESS
+                    message: Success
+        '401':
+          $ref: "#/components/responses/401Unauthorized"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+  /v1/user/firebase-custom-token:
+    get:
+      tags:
+        - user
+      summary: 현재 사용자의 Firebase custom token 조회
+      description: 로그인된 상태에서 Firebase SDK에 sign in 필요할 때 호출 (응답값은 매번 바뀔 수 있으며 서버에 저장되지 않음)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          firebaseCustomToken:
+                            type: string
+                        required:
+                          - firebaseCustomToken
+        '401':
+          $ref: "#/components/responses/401Unauthorized"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+  /v1/user/social-account/{id}:
+    delete:
+      tags:
+        - user
+      summary: 현재 사용자의 소셜 계정 연동 해제
+      description: 특정 소셜 계정의 연동만 해제하는 경우 호출 (id 는 정수 값으로, 현재 사용자 정보 조회 API 에서 얻은 socialAccounts 원소의 id 값)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+      responses:
+        '200':
+          description: 연동 해제 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                logoutOk:
+                  summary: 연동 해제 성공
+                  value:
+                    code: SUCCESS
+                    message: Success
+  /v1/user/nickname-availability:
+    get:
+      tags:
+        - user
+      summary: 닉네임 사용 가능 여부 조회
+      description: 닉네임 변경 전 검사를 위해 호출
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+        - name: nickname
+          in: query
+          schema:
+            type: string
+          description: 조회할 닉네임 (전송시 URL Encoding 처리 필요함에 주의)
+          required: true
+      responses:
+        '200':
+          description: 조회 성공 (isForbidden, isOccupied 값이 모두 false 일때만 사용 가능)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          nickname:
+                            type: string
+                            description: 조회한 닉네임
+                          isForbidden:
+                            type: boolean
+                            description: 금지 여부
+                            example: false
+                          isOccupied:
+                            type: boolean
+                            description: 사용 여부
+                        required:
+                          - nickname
+                          - isForbidden
+                          - isOccupied
+        '401':
+          $ref: "#/components/responses/401Unauthorized"
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+
+  /v1/terms:
+    get:
+      tags:
+        - terms
+      summary: 약관 정보 조회
+      description: 서비스 약관 전체 조회
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      content:
+                        type: object
+                        properties:
+                          terms:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Terms'
+                        required:
+                          - terms
+        '426':
+          $ref: "#/components/responses/426UpgradeRequired"
+
+components:
+  securitySchemes:
+    XServiceCustomDeviceId:
+      type: apiKey
+      in: header
+      name: X-Service-Custom-Device-Id
+    XServiceDeviceModel:
+      type: apiKey
+      in: header
+      name: X-Service-Device-Model
+    XServiceOsType:
+      type: apiKey
+      in: header
+      name: X-Service-Os-Type
+    XServiceOsVersion:
+      type: apiKey
+      in: header
+      name: X-Service-Os-Version
+    XServiceAppVersion:
+      type: apiKey
+      in: header
+      name: X-Service-App-Version
+
+  parameters:
+    AuthorizationHeader:
+      name: Authorization
+      in: header
+      description: 서비스 엑세스 토큰
+      required: true
+      schema:
+        type: string
+        example: Bearer myAccessToken
+
+  responses:
+    401Unauthorized:
+      description: 토큰 만료 (토큰 갱신 필요, 갱신도 실패 시엔 강제 로그아웃)
+    426UpgradeRequired:
+      description: 필수 업데이트 설정된 클라이언트 버전 (앱 업데이트 필요)
+
+  schemas:
+    SuccessResponse:
+      type: object
+      description: 서버 공통 성공 응답
+      properties:
+        code:
+          type: string
+          example: SUCCESS
+          description: 응답 코드
+        message:
+          type: string
+          example: Success
+          description: 참고용 응답 메세지
+        content:
+          type: object
+          description: 성공 응답 세부 (json 내용은 API 별로 다름)
+      required:
+        - code
+    ErrorResponse:
+      type: object
+      description: 서버 공통 에러 응답
+      properties:
+        code:
+          type: string
+          example: SOCIAL_ERROR
+          description: 응답 코드
+        message:
+          type: string
+          example: 소셜 계정 인증 실패
+          description: 참고용 응답 메세지
+        error:
+          type: object
+          description: 에러 응답 세부 (json 내용은 API 별로 다름)
+      required:
+        - code
+        - message
+        - error
+
+    Terms:
+      type: object
+      description: 약관 정보
+      properties:
+        termsKey:
+          type: string
+          description: 약관 구분자
+          example: "SERVICE_SERVICE_USE"
+        version:
+          type: integer
+          format: int32
+          description: 약관의 현재 버전
+        displayOrder:
+          type: integer
+          format: int32
+          description: 약관 노출 순서 (음수인 경우 미노출 처리)
+        title:
+          type: string
+          description: 약관 제목
+        contentLink:
+          type: string
+          description: 약관 내용 페이지 링크
+          example: https://cdn.service.co.kr/terms/aa.html
+        isMandatory:
+          type: boolean
+          description: 약관의 필수 여부 (선택 약관이면 false)
+      required:
+        - termsKey
+        - displayOrder
+        - title
+        - contentLink
+        - version
+        - isMandatory
+    VoterType:
+      type: string
+      description: 투표 자격 상태
+      enum:
+        - ELIGIBLE
+        - INCOMPLETE
+        - FOREIGNER
+        - UNDERAGE
+    AgeGroup:
+      type: string
+      description: 연령대
+      enum:
+        - UNAUTHENTICATED
+        - UNDER_18
+        - TEENS
+        - TWENTIES
+        - THIRTIES
+        - FORTIES
+        - FIFTIES
+        - SIXTIES
+        - SEVENTIES
+        - EIGHTIES_AND_ABOVE
+    TermsAgreements:
+      type: array
+      description: 사용자가 동의한 약관 리스트
+      items:
+        type: object
+        description: 약관 동의 정보
+        properties:
+          termsKey:
+            type: string
+            description: 약관 구분자
+            example: "SERVICE_SERVICE_USE"
+          version:
+            type: integer
+            format: int32
+            description: 동의할 당시 약관의 버전
+            example: 1
+        required:
+          - termsKey
+          - version
+    Profile:
+      type: object
+      description: 사용자 프로필 & 추가 정보
+      properties:
+        nickname:
+          type: string
+          description: 닉네임
+          example: 정치하는감자
+        imageUrl:
+          type: string
+          description: 프로필 사진 URL
+          example: https://cdn.service.co.kr/profile/image/abcabc.jpg
+        district:
+          type: string
+          description: 지역구
+          enum:
+            - SEOUL
+            - INCHEON
+            - GYEONGGI
+            - GANGWON
+            - CHUNGCHEONG
+            - GYEONGSANG
+            - JEOLLA
+            - JEJU
+        interestFields:
+          type: array
+          description: 관심 분야 리스트
+          items:
+            type: string
+            enum:
+              - 정치/선거
+              - 경제/금융
+              - 행정/복지
+              - 산업/기업/노동
+              - 과학/기술/IT
+              - 교육/연구
+              - 문화/예술/방송
+              - 보건/의료
+              - 환경/자원/에너지
+              - 국토/교통
+              - 법/치안/인권
+              - 외교/안보/국방
+              - 농림/축산/수산/식품
+        interestLevel:
+          type: string
+          description: 관심 수준
+          enum:
+            - MAX
+            - HIGH
+            - NORMAL
+            - LOW
+            - MIN
+        termsAgreements:
+          $ref: '#/components/schemas/TermsAgreements'
+    Device:
+      type: object
+      description: 현 디바이스 정보
+      properties:
+        pushTokenType:
+          type: string
+          description: 푸시 토큰 타입
+          enum:
+            - FCM_REGISTRATION_TOKEN
+            - APNS_DEVICE_TOKEN
+        pushToken:
+          type: string
+          description: 푸시 토큰
+      required:
+        - pushTokenType
+        - pushToken
+    Social:
+      type: object
+      description: 소셜 로그인 검증 결과
+      properties:
+        socialType:
+          $ref: '#/components/schemas/SocialType'
+        socialUuid:
+          $ref: '#/components/schemas/SocialUuid'
+      required:
+        - socialType
+        - socialUuid
+    SocialAccount:
+      type: object
+      description: 연동된 소셜 계정 정보
+      properties:
+        id:
+          description: 소셜 계정 정보 키 값
+          type: integer
+          format: int64
+          example: 1
+        socialType:
+          $ref: '#/components/schemas/SocialType'
+        email:
+          $ref: '#/components/schemas/Email'
+      required:
+        - id
+        - socialType
+        - email
+    SocialType:
+      type: string
+      enum:
+        - KAKAO
+        - APPLE
+        - NAVER
+        - GOOGLE
+      description: 소셜 사이트 타입
+      example: KAKAO
+    SocialUuid:
+      type: string
+      description: 소셜 로그인 정보 검증 후 응답 받은 UUID 값
+      example: 827fd25a-863d-4d4d-b624-5ad55f1fa32f
+    Email:
+      type: string
+      description: 이메일
+      example: myid@example.com
+    ServiceUserId:
+      description: 사용자 아이디
+      type: integer
+      format: int64
+      example: 1
+    AccessToken:
+      description: 서비스 엑세스 토큰 (1시간 만료)
+      type: string
+    RefreshToken:
+      description: 서비스 리프레시 토큰 (90일 만료)
+      type: string

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>SERVICE API Docs – Swagger UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Swagger UI CSS (CDN) -->
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      .topbar { display: none; } /* 상단 파란 바 숨김 */
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+
+    <!-- Swagger UI JS (CDN) -->
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin></script>
+    <script>
+      window.ui = SwaggerUIBundle({
+        url: 'https://ktyu.github.io/service-server-user/openapi.yml',  // yml 파일 위치
+        dom_id: '#swagger-ui',        // Swagger UI를 렌더링할 DOM 요소 id
+        deepLinking: true,            // URL 해시(#)로 특정 API 엔드포인트 바로 열기
+        // displayOperationId: true,     // 각 엔드포인트(operationId)를 UI에 표시
+        // tryItOutEnabled: true,        // Try it out 버튼 기본 활성화 여부
+        docExpansion: 'list',         // API 문서 펼침 방식 - 'none' : 모두 닫힘, 'list' : 1레벨만 펼침, 'full' : 전체 펼침
+        defaultModelsExpandDepth: 0,  // 좌측 Models(Object schemas) 기본 확장 깊이, 0이면 Models 섹션이 기본으로 닫힘
+        validatorUrl: null,           // OpenAPI 스펙을 swagger.io validator 서비스로 검증할지 여부, null = 검증 끔 (내부용에서는 보통 끄는 게 안전)
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],  // 미리 정의된 UI preset (apis: 기본 API UI, standalone: download 버튼 등)
+        plugins: [SwaggerUIBundle.plugins.DownloadUrl],  // 플러그인 확장 (예: spec 다운로드 버튼)
+        syntaxHighlight: { activate: true },  // 코드 영역 Syntax Highlight 옵션
+        persistAuthorization: true,  // 새로고침 후에도 인증 유지
+      });
+    </script>
+  </body>
+</html>
