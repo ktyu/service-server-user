@@ -1,5 +1,5 @@
 CREATE TABLE user_profile (
-    service_user_id BIGINT NOT NULL PRIMARY KEY,
+    service_user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     nickname VARCHAR(64) NOT NULL UNIQUE,
     terms_agreements JSON NOT NULL,
     image_url VARCHAR(256) NULL,
