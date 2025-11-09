@@ -1,32 +1,38 @@
 package com.service.api.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
+
+@JsonInclude(value = JsonInclude.Include.NON_NULL)
 data class Response<T>(
-    val success: Boolean,
-    val data: T? = null,
+    val code: String,
     val message: String? = null,
-    val errorCode: String? = null,
+    val content: T? = null,
+    val error: T? = null,
 ) {
     companion object {
+        const val SUCCESS = "SUCCESS"
+
         fun <T> success(
-            data: T,
+            content: T,
             message: String? = "Success",
         ): Response<T> =
             Response(
-                success = true,
-                data = data,
+                code = SUCCESS,
+                content = content,
                 message = message,
-                errorCode = null,
+                error = null,
             )
 
         fun <T> error(
+            errorCode: String,
             message: String,
-            errorCode: String? = null,
+            error: T,
         ): Response<T> =
             Response(
-                success = false,
-                data = null,
+                code = errorCode,
+                content = null,
                 message = message,
-                errorCode = errorCode,
+                error = error,
             )
     }
 }
