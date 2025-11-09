@@ -3,6 +3,7 @@ package com.service.api.controller
 import com.service.api.common.ApiRequestContextHolder
 import com.service.api.dto.FirebaseCustomTokenResponse
 import com.service.api.dto.ModifyUserRequest
+import com.service.api.dto.NicknameAvailabilityResponse
 import com.service.api.interceptor.Auth
 import com.service.api.model.User
 import com.service.api.service.UserService

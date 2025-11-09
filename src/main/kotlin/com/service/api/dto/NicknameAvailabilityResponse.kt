@@ -1,4 +1,4 @@
-package com.service.api.controller
+package com.service.api.dto
 
 data class NicknameAvailabilityResponse(
     val nickname: String,
