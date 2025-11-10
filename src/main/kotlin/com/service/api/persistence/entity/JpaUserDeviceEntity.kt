@@ -43,12 +43,12 @@ class JpaUserDeviceEntity(
     @Column(name = "push_token", nullable = false, length = 1024)
     var pushToken: String,
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Version
     @Column(name = "updated_at", nullable = false)
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "deleted_at")
     var deletedAt: LocalDateTime? = null
@@ -57,7 +57,7 @@ class JpaUserDeviceEntity(
 @Embeddable
 data class UserDeviceId(
     @Column(name = "service_user_id")
-    val serviceUserId: Long,
+    var serviceUserId: Long,
 
     @Column(name = "custom_device_id", columnDefinition = "CHAR(36)")
     val customDeviceId: String

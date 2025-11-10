@@ -14,15 +14,22 @@ import java.time.LocalDateTime
 @Table(name = "user_profile")
 class JpaUserProfileEntity(
     @Id
-    @Column(name = "service_user_id", nullable = false)
-    val serviceUserId: Long,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "service_user_id")
+    var serviceUserId: Long? = null,
 
     @Column(name = "nickname", nullable = false, unique = true, length = 64)
     var nickname: String,
 
+    @Column(name = "nickname_updated_at", nullable = false)
+    var nicknameUpdatedAt: LocalDateTime = LocalDateTime.now(),
+
     @Convert(converter = TermsAgreementMapJsonConverter::class)
     @Column(name = "terms_agreements", nullable = false, columnDefinition = "JSON")
     var termsAgreements: Map<String, Int>,
+
+    @Column(name = "terms_agreements_updated_at", nullable = false)
+    var termsAgreementsUpdatedAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "image_url", length = 256)
     var imageUrl: String? = null,
@@ -39,12 +46,12 @@ class JpaUserProfileEntity(
     @Column(name = "interest_level", length = 8)
     var interestLevel: InterestLevel? = null,
 
-    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Version
-    @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "deleted_at")
     var deletedAt: LocalDateTime? = null,

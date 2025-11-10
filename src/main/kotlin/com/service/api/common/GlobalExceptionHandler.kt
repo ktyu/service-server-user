@@ -52,7 +52,6 @@ class GlobalExceptionHandler {
 
         IllegalArgumentException::class,
         TermsAgreementException::class,
-        Under14SignupFailException::class,
     )
     fun handleBadRequest(ex: Exception): ResponseEntity<Void> {
         log.debug("[400-BAD_REQUEST] {}", ex.message)

@@ -6,10 +6,10 @@ CREATE TABLE user_social (
     social_access_token VARCHAR(1024) NULL,
     social_id_token VARCHAR(4096) NULL,
     social_refresh_token VARCHAR(1024) NULL,
-    email VARCHAR(256) NULL,
+    email VARCHAR(256) NOT NULL,
     is_email_verified BOOLEAN NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '연결 상태 최종 확인 시간',
+    updated_at DATETIME(6) NOT NULL COMMENT '연결 상태 최종 확인 시간',
     UNIQUE KEY uq_social_uuid (social_uuid),
     UNIQUE KEY uq_social_type_and_sub (social_type, sub)
 )

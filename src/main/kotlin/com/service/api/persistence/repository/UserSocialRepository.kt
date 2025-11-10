@@ -6,8 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
 @Repository
-interface UserSocialRepository : JpaRepository<JpaUserSocialEntity, String> {
-    fun findBySocialTypeAndSub(socialType: SocialType, sub: String): JpaUserSocialEntity?
+interface UserSocialRepository : JpaRepository<JpaUserSocialEntity, Long> {
 
-    fun deleteBySocialUuid(socialUuid: String)
+    fun findBySocialUuid(socialUuid: String): JpaUserSocialEntity?
+
+    fun findBySocialTypeAndSub(socialType: SocialType, sub: String): JpaUserSocialEntity?
 }

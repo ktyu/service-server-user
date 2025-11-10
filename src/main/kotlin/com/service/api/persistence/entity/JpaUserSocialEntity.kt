@@ -8,16 +8,18 @@ import java.time.LocalDateTime
 @Table(
     name = "user_social",
     uniqueConstraints = [
-        UniqueConstraint(
-            name = "uq_social_type_and_sub",
-            columnNames = ["social_type", "sub"]
-        )
+        UniqueConstraint(name = "uq_social_uuid", columnNames = ["social_uuid"]),
+        UniqueConstraint(name = "uq_social_type_and_sub", columnNames = ["social_type", "sub"]),
     ]
 )
 class JpaUserSocialEntity(
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "social_id")
+    var socialId: Long? = null,
+
     @Column(name = "social_uuid", nullable = false, columnDefinition = "CHAR(36)")
-    val socialUuid: String,
+    var socialUuid: String,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "social_type", nullable = false, length = 8)
@@ -35,13 +37,13 @@ class JpaUserSocialEntity(
     @Column(name = "social_refresh_token", length = 1024)
     var socialRefreshToken: String?,
 
-    @Column(name = "email", length = 256)
-    var email: String?,
+    @Column(name = "email", nullable = false, length = 256)
+    var email: String,
 
     @Column(name = "is_email_verified", nullable = false)
     var isEmailVerified: Boolean = false,
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @Version

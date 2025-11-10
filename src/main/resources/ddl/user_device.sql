@@ -11,7 +11,7 @@ CREATE TABLE user_device (
     push_token_type VARCHAR(32) NOT NULL,
     push_token VARCHAR(1024) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '단말에서 최초 로그인한 시각',
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '최종 사용 시각(로그인/토큰 갱신)',
+    updated_at DATETIME(6) NOT NULL COMMENT '최종 사용 시각(로그인/토큰 갱신)',
     deleted_at DATETIME NULL,
     PRIMARY KEY (service_user_id, custom_device_id)
 )

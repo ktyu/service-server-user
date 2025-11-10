@@ -5,9 +5,9 @@ CREATE TABLE user_identity (
     gender CHAR(1) NOT NULL,
     birthdate DATE NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME(6) NOT NULL,
     deleted_at DATETIME NULL,
-    UNIQUE KEY uq_hased_ci (hashed_ci)
+    UNIQUE KEY uq_hashed_ci (hashed_ci)
 )
     ENGINE=InnoDB
     DEFAULT CHARSET=utf8mb4

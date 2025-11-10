@@ -10,6 +10,7 @@ data class ApiRequestContext(
     val appVersion: String,
     val clientIp: String?,
     var serviceUserId: Long? = null, // 인증 인터셉터를 타는 경우 채워짐
+    var socialId: Long? = null, // 인증 인터셉터를 타는 경우 채워짐
 )
 
 object ApiRequestContextHolder {

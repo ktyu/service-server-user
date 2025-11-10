@@ -1,5 +1,6 @@
 package com.service.api.controller
 
+import com.service.api.dto.Response
 import com.service.api.model.Terms
 import com.service.api.service.TermsService
 import org.springframework.web.bind.annotation.GetMapping
@@ -13,7 +14,7 @@ class TermsController(
 ) {
 
     @GetMapping("/v1/terms")
-    fun getAllTerms(): List<Terms> {
-        return termsService.getAllTerms()
+    fun getAllTerms(): Response<List<Terms>> {
+        return Response.success(termsService.getAllTerms())
     }
 }

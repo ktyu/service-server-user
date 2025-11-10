@@ -42,4 +42,12 @@ class TermsService(
 
         return termsAgreementMap
     }
+
+    internal fun mergeTermsAgreements(m1: Map<String, Int>, m2: Map<String, Int>): Map<String, Int> {
+        return m1.keys
+            .intersect(m2.keys) // 두 맵 모두에 존재하는 키(termsKey)만 추출
+            .associateWith { key ->
+                maxOf(m1.getValue(key), m2.getValue(key)) // 각 키에 대해 더 큰 값(최신 version)을 선택
+            }
+    }
 }

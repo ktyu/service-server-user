@@ -14,9 +14,12 @@ interface UserProfileRepository : JpaRepository<JpaUserProfileEntity, Long> {
     fun existsByNickname(nickname: String): Boolean
 
     @Modifying
-    @Query("UPDATE JpaUserProfileEntity p SET " +
-            "p.nickname = CONCAT(p.nickname, '_DELETED_', p.serviceUserId), " +
-            "p.deletedAt = CURRENT_TIMESTAMP " +
-            "WHERE p.serviceUserId = :serviceUserId")
+    @Query("""
+        UPDATE JpaUserProfileEntity p SET
+            p.nickname = CONCAT(p.nickname, '_DELETED_', p.serviceUserId),
+            p.updatedAt = CURRENT_TIMESTAMP,
+            p.deletedAt = CURRENT_TIMESTAMP
+        WHERE p.serviceUserId = :serviceUserId
+    """)
     fun markDeletedByServiceUserId(serviceUserId: Long)
 }

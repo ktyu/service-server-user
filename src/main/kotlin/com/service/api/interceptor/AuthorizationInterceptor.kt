@@ -31,6 +31,7 @@ class AuthorizationInterceptor(
         with (deviceService.getServiceApiTokenPayload(accessToken)) {
             val ctx = ApiRequestContextHolder.get()
             ctx.serviceUserId = serviceUserId
+            ctx.socialId = socialId
 
             deviceService.getDeviceVersionForAuth(serviceUserId, customDeviceId, deviceModel, osType)
                 ?.also { v ->

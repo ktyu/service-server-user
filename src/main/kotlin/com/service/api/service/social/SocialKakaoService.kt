@@ -5,13 +5,11 @@ import com.service.api.client.KapiKakaoComClient
 import com.service.api.common.enum.SocialType
 import com.service.api.common.exception.InvalidSocialException
 import com.service.api.persistence.entity.JpaUserSocialEntity
-import com.service.api.persistence.repository.UserSocialRepository
 import org.slf4j.LoggerFactory
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import java.time.LocalDateTime
 
 internal class SocialKakaoService(
-    private val userSocialRepository: UserSocialRepository,
     private val kapiKakaoComClient: KapiKakaoComClient,
     private val kakaoAppId: Int,
     private val kakaoAppAdminKey: String,
@@ -39,10 +37,16 @@ internal class SocialKakaoService(
         return kakaoAccessTokenInfo.id.toString()
     }
 
-    internal fun saveSocialStatus(socialUuid: String, kakaoSub: String, socialAccessToken: String, socialRefreshToken: String, createdAt: LocalDateTime) {
+    internal fun renewSocialStatus(socialUuid: String, kakaoSub: String, socialAccessToken: String, socialRefreshToken: String, existingEntity: JpaUserSocialEntity? = null): JpaUserSocialEntity {
         val kakaoAccountInfo = getKakaoAccountInfoByKakaoSubWithAdminKey(kakaoSub)
 
-        userSocialRepository.save(JpaUserSocialEntity(
+        return existingEntity?.apply {
+            this.socialUuid = socialUuid
+            this.socialAccessToken = socialAccessToken
+            this.socialRefreshToken = socialRefreshToken
+            this.email = kakaoAccountInfo.getEmail()
+            this.isEmailVerified = kakaoAccountInfo.getIsEmailVerified()
+        } ?: JpaUserSocialEntity(
             socialUuid = socialUuid,
             socialType = socialType,
             sub = kakaoSub,
@@ -51,8 +55,7 @@ internal class SocialKakaoService(
             socialRefreshToken = socialRefreshToken,
             email = kakaoAccountInfo.getEmail(),
             isEmailVerified = kakaoAccountInfo.getIsEmailVerified(),
-            createdAt = createdAt
-        ))
+        )
     }
 
     internal fun validateSocialStatus(userSocialEntity: JpaUserSocialEntity) {
@@ -90,7 +93,7 @@ internal class SocialKakaoService(
         }
     }
 
-    private fun KakaoAccountInfo.getEmail(): String? = this.kakao_account?.email
+    private fun KakaoAccountInfo.getEmail(): String = this.kakao_account?.email ?: ""
 
     private fun KakaoAccountInfo.getIsEmailVerified(): Boolean = this.kakao_account?.run {
         (is_email_valid == true) && (is_email_verified == true)

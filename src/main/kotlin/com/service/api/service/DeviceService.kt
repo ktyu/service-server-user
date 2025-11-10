@@ -3,7 +3,6 @@ package com.service.api.service
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.service.api.common.ApiRequestContextHolder
 import com.service.api.common.enum.PushTokenType
-import com.service.api.common.enum.SocialType
 import com.service.api.common.exception.InvalidSocialException
 import com.service.api.common.exception.InvalidTokenException
 import com.service.api.model.ServiceApiAccessTokenPayload
@@ -11,7 +10,6 @@ import com.service.api.model.ServiceApiRefreshTokenPayload
 import com.service.api.persistence.entity.JpaUserDeviceEntity
 import com.service.api.persistence.entity.UserDeviceId
 import com.service.api.persistence.repository.UserDeviceRepository
-import com.service.api.persistence.repository.UserIdentityRepository
 import com.service.api.service.social.SocialService
 import com.service.api.util.Sha256HashingUtil
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -20,10 +18,10 @@ import com.service.api.common.exception.ExpiredTokenException
 import com.service.api.common.exception.ServiceUserNotFoundException
 import com.service.api.model.DeviceVersion
 import com.service.api.model.ServiceApiTokenPayload
+import com.service.api.persistence.repository.UserProfileRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -41,24 +39,19 @@ import kotlin.text.Charsets
 @Service
 class DeviceService(
     private val userDeviceRepository: UserDeviceRepository,
-    private val userIdentityRepository: UserIdentityRepository,
+    private val userProfileRepository: UserProfileRepository,
     private val socialService: SocialService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
-    fun saveDevice(serviceUserId: Long, socialType: SocialType, socialUuid: String?, pushTokenType: PushTokenType, pushToken: String): Pair<String, String> {
-        val userIdentityEntity = userIdentityRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
+    fun saveDevice(serviceUserId: Long, socialId: Long, pushTokenType: PushTokenType? = null, pushToken: String? = null): Pair<String, String> {
+        // 유저-소셜 매핑 정보 검증
+        val userProfileEntity = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
             ?: throw ServiceUserNotFoundException(serviceUserId)
-        val userIdentitySocialUuid = userIdentityEntity.getSocialUuid(socialType)
-            ?: throw InvalidSocialException("userIdentitySocialUuid is null")
-        val sub = socialService.getSub(userIdentitySocialUuid, socialType)
-
-        if (socialUuid != null) {
-            // 소셜 연결 상태 검증
-            if (socialUuid != userIdentitySocialUuid)
-                throw InvalidSocialException("socialUuid not matched: $socialUuid != $userIdentitySocialUuid")
-            socialService.validateSocialUuid(socialUuid, socialType)
+        val mappedServiceUserId = socialService.getServiceUserIdBy(socialId = socialId)
+        if (userProfileEntity.serviceUserId != mappedServiceUserId) {
+            throw InvalidSocialException("serviceUserId not matched: ${userProfileEntity.serviceUserId} != $mappedServiceUserId")
         }
 
         // 헤더 정보 가져와서 기존 저장된거 있나 보고 있으면 비교, 없으면 추가
@@ -70,9 +63,9 @@ class DeviceService(
                 this.osType = ctx.osType
                 this.osVersion = ctx.osVersion
                 this.appVersion = ctx.appVersion
-                this.lastLoginAt = LocalDateTime.now()
-                this.pushTokenType = pushTokenType
-                this.pushToken = pushToken
+                this.lastLoginAt = if (pushToken == null) this.lastLoginAt else LocalDateTime.now()
+                this.pushTokenType = pushTokenType ?: this.pushTokenType
+                this.pushToken = pushToken ?: this.pushToken
                 this.deletedAt = null
             }
             ?: JpaUserDeviceEntity(
@@ -83,13 +76,12 @@ class DeviceService(
                 osVersion = ctx.osVersion,
                 appVersion = ctx.appVersion,
                 lastLoginAt = LocalDateTime.now(),
-                pushTokenType = pushTokenType,
-                pushToken = pushToken,
+                pushTokenType = pushTokenType ?: throw RuntimeException("pushTokenType is null for new device"),
+                pushToken = pushToken ?: throw RuntimeException("pushToken is null for new device"),
             )
 
         // 토큰 발급
-        val iat = Instant.now().epochSecond
-        val (accessToken, refreshToken) = issueTokens(iat, serviceUserId, socialType, sub, null)
+        val (iat, accessToken, refreshToken) = issueTokens(serviceUserId, socialId, null)
 
         userDeviceEntity.accessTokenIssuedAt = iat
         userDeviceEntity.refreshTokenIssuedAt = iat
@@ -135,18 +127,20 @@ class DeviceService(
             if (this.deviceModel != userDeviceEntity.deviceModel || this.osType != userDeviceEntity.osType)
                 throw InvalidTokenException("deviceModel or osType changed: $this != $userDeviceEntity")
 
-            // 소셜 연결 상태 검증
-            socialService.validateSocialTypeAndSub(socialType, sub).also { socialUuid ->
-                // userIdentity 검증
-                val userIdentityEntity = userIdentityRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
-                    ?: throw ServiceUserNotFoundException(serviceUserId)
-                if (userIdentityEntity.getSocialUuid(socialType) != socialUuid)
-                    throw InvalidSocialException("socialUuid unmatched: ${userIdentityEntity.getSocialUuid(socialType)} != $socialUuid")
+
+            // 유저-소셜 매핑 정보 검증
+            val userProfileEntity = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
+                ?: throw ServiceUserNotFoundException(serviceUserId)
+            val mappedServiceUserId = socialService.getServiceUserIdBy(socialId = socialId)
+            if (userProfileEntity.serviceUserId != mappedServiceUserId) {
+                throw InvalidSocialException("serviceUserId not matched: ${userProfileEntity.serviceUserId} != $mappedServiceUserId")
             }
 
+            // 소셜 연결 상태 검증
+            socialService.validateSocialId(socialId)
+
             // 토큰 발급 및 iat 갱신
-            val newIat = Instant.now().epochSecond
-            val (newAccessToken, newRefreshToken) = issueTokens(newIat, serviceUserId, socialType, sub, exp)
+            val (newIat, newAccessToken, newRefreshToken) = issueTokens(serviceUserId, socialId, exp)
             userDeviceEntity.accessTokenIssuedAt = newIat
             if (newRefreshToken != null) userDeviceEntity.refreshTokenIssuedAt = newIat
 
@@ -160,6 +154,14 @@ class DeviceService(
             ?: throw InvalidTokenException("UserDeviceEntity not found: ${serviceUserId}/${customDeviceId}")
         userDeviceEntity.pushTokenType = pushTokenType
         userDeviceEntity.pushToken = pushToken
+    }
+
+    @Transactional
+    fun mergeAllDeviceServiceUserId(sourceServiceUserId: Long, targetServiceUserId: Long) {
+        userDeviceRepository.findAllByIdServiceUserId(sourceServiceUserId).forEach {
+            userDeviceRepository.deleteById(UserDeviceId(targetServiceUserId, it.id.customDeviceId))
+        }
+        userDeviceRepository.updateAllByServiceUserId(sourceServiceUserId, targetServiceUserId)
     }
 
     @Transactional
@@ -192,20 +194,22 @@ class DeviceService(
             ?.run { DeviceVersion(accessTokenIssuedAt, osVersion, appVersion) }
     }
 
-    private fun issueTokens(iat: Long, serviceUserId: Long, socialType: SocialType, sub: String, existingRefreshTokenExp: Long?): Pair<String, String?> {
+    private fun issueTokens(serviceUserId: Long, socialId: Long, existingRefreshTokenExp: Long?): Triple<Long, String, String?> {
+        val iat = Instant.now().epochSecond
+
         // 현 refreshToken 의 만료가 일정기간 이하로 남았거나 없는 경우에 refreshToken 도 발급
         val issueRefreshToken = existingRefreshTokenExp?.let { exp ->
             (exp - Instant.now().epochSecond) < TokenSupport.REFRESH_TOKEN_REISSUE_THRESHOLD.toSeconds()
         } ?: true
 
         // 토큰 발급 (accessToken-jwt, refreshToken-jwe)
-        val accessToken = createAccessToken(iat, serviceUserId)
-        val refreshToken = if (issueRefreshToken) createRefreshToken(iat, serviceUserId, socialType, sub) else null
+        val accessToken = createAccessToken(iat, serviceUserId, socialId)
+        val refreshToken = if (issueRefreshToken) createRefreshToken(iat, serviceUserId, socialId) else null
 
-        return Pair(accessToken, refreshToken)
+        return Triple(iat, accessToken, refreshToken)
     }
 
-    private fun createAccessToken(iat: Long, serviceUserId: Long): String {
+    private fun createAccessToken(iat: Long, serviceUserId: Long, socialId: Long): String {
         val ctx = ApiRequestContextHolder.get()
         val exp = Instant.ofEpochSecond(iat).plus(TokenSupport.ACCESS_TOKEN_TTL).epochSecond
         val payload = ServiceApiAccessTokenPayload(
@@ -213,6 +217,7 @@ class DeviceService(
             iat = iat,
             exp = exp,
             serviceUserId = serviceUserId,
+            socialId = socialId,
             customDeviceId = ctx.customDeviceId,
             deviceModel = ctx.deviceModel,
             osType = ctx.osType,
@@ -221,15 +226,14 @@ class DeviceService(
         return TokenSupport.encodeJwt(TokenSupport.JwtHeader(), payload)
     }
 
-    private fun createRefreshToken(iat: Long, serviceUserId: Long, socialType: SocialType, sub: String): String {
+    private fun createRefreshToken(iat: Long, serviceUserId: Long, socialId: Long): String {
         val ctx = ApiRequestContextHolder.get()
         val exp = Instant.ofEpochSecond(iat).plus(TokenSupport.REFRESH_TOKEN_TTL).epochSecond
         val payload = ServiceApiRefreshTokenPayload(
-            socialType = socialType,
-            sub = sub,
             iat = iat,
             exp = exp,
             serviceUserId = serviceUserId,
+            socialId = socialId,
             customDeviceId = ctx.customDeviceId,
             deviceModel = ctx.deviceModel,
             osType = ctx.osType,

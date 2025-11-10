@@ -30,11 +30,11 @@ class KakaoController(
             if (authorization != "KakaoAK $kakaoAppAdminKey")
                 throw RuntimeException("authorization header wrong: $authorization")
 
-            val (kakaoUuid, serviceUserId) = socialService.removeSocialStatus(SocialType.KAKAO, userId)
-            if (kakaoUuid == null)
+            val (socialId, serviceUserId) = socialService.deleteSocialStatus(SocialType.KAKAO, userId)
+            if (socialId == null)
                 throw RuntimeException("not existing socialStatus tried to remove by kakao server: sub=$userId")
 
-            log.info("socialStatus removed by kakao server: socialUuid=$kakaoUuid, serviceUserId=$serviceUserId")
+            log.info("socialStatus removed by kakao server: socialId=$socialId, serviceUserId=$serviceUserId")
         } catch (e: Exception) {
             log.error("failed to removeSocialStatus: ${e.message}", e)
         }

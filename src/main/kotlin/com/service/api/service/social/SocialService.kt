@@ -4,7 +4,9 @@ import com.fasterxml.uuid.Generators
 import com.service.api.client.KapiKakaoComClient
 import com.service.api.common.enum.SocialType
 import com.service.api.common.exception.InvalidSocialException
-import com.service.api.persistence.repository.UserIdentityRepository
+import com.service.api.persistence.entity.JpaUserSocialMappingEntity
+import com.service.api.persistence.entity.UserSocialMappingId
+import com.service.api.persistence.repository.UserSocialMappingRepository
 import com.service.api.persistence.repository.UserSocialRepository
 import com.service.api.util.StringUtil.isValidUuid
 import org.springframework.beans.factory.annotation.Value
@@ -14,36 +16,23 @@ import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDateTime
 import java.util.*
 import java.util.concurrent.Executor
 
 @Service
 class SocialService(
     private val userSocialRepository: UserSocialRepository,
-    private val userIdentityRepository: UserIdentityRepository,
+    private val userSocialMappingRepository: UserSocialMappingRepository,
     private val asyncExecutor: Executor,
 
     kapiKakaoComClient: KapiKakaoComClient,
     @Value("\${api.kapi-kakao-com.app-id}") kakaoAppId: Int,
     @Value("\${api.kapi-kakao-com.app-admin-key}") kakaoAppAdminKey: String,
 ) {
-    private val kakaoService = SocialKakaoService(userSocialRepository, kapiKakaoComClient, kakaoAppId, kakaoAppAdminKey)
+    private val kakaoService = SocialKakaoService(kapiKakaoComClient, kakaoAppId, kakaoAppAdminKey)
 
-    fun getSub(socialUuid: String, socialType: SocialType): String {
-        val userSocialEntity = userSocialRepository.findByIdOrNull(socialUuid)
-            ?: throw InvalidSocialException("userSocialEntity not found: $socialUuid")
-        if (userSocialEntity.socialType != socialType)
-            throw InvalidSocialException("userSocialEntity type unmatched: ${userSocialEntity.socialType} != $socialType")
-
-        return userSocialEntity.sub
-    }
-
-    fun getEmail(socialUuid: String): String? {
-        val userSocialEntity = userSocialRepository.findByIdOrNull(socialUuid)
-            ?: throw InvalidSocialException("userSocialEntity not found: $socialUuid")
-
-        return userSocialEntity.email
+    fun getServiceUserIdBy(socialId: Long): Long? {
+        return userSocialMappingRepository.findByIdSocialId(socialId)?.id?.serviceUserId
     }
 
     @Transactional
@@ -57,24 +46,17 @@ class SocialService(
             }
 
             val newSocialUuid = randomUUID7()
-            var userSocialEntityCreatedAt = LocalDateTime.now()
-            var serviceUserId: Long? = null
 
-            val userSocialEntity = userSocialRepository.findBySocialTypeAndSub(socialType, sub)
-            if (userSocialEntity != null) {
-                // 이미 저장되어 있던 소셜 ID 라면, PK를 변경하기 위해 최초 연결된 시점만 보관 후 삭제하고, 연결되어 있는 serviceUserId 에도 갱신해줌
-                userSocialEntityCreatedAt = userSocialEntity.createdAt
-                userSocialRepository.deleteBySocialUuid(userSocialEntity.socialUuid)
-                userSocialRepository.flush()
-                serviceUserId = renewUserIdentitySocialUuid(socialType, userSocialEntity.socialUuid, newSocialUuid)
-            }
-
-            when (socialType) {
-                SocialType.KAKAO -> kakaoService.saveSocialStatus(newSocialUuid, sub, socialAccessToken, socialRefreshToken, userSocialEntityCreatedAt)
+            var userSocialEntity = userSocialRepository.findBySocialTypeAndSub(socialType, sub)
+            userSocialEntity = when (socialType) {
+                SocialType.KAKAO -> kakaoService.renewSocialStatus(newSocialUuid, sub, socialAccessToken, socialRefreshToken, userSocialEntity)
                 SocialType.APPLE,
                 SocialType.NAVER,
                 SocialType.GOOGLE -> TODO()
             }
+            userSocialEntity = userSocialRepository.save(userSocialEntity)
+
+            val serviceUserId = userSocialMappingRepository.findByIdSocialId(userSocialEntity.socialId!!)?.id?.serviceUserId
 
             return Pair(newSocialUuid, serviceUserId)
         } catch (e: NullPointerException) {
@@ -83,30 +65,62 @@ class SocialService(
     }
 
     @Transactional
-    fun removeSocialStatus(socialType: SocialType, sub: String): Pair<String?, Long?> {
+    fun deleteSocialStatus(socialType: SocialType, sub: String): Pair<Long?, Long?> {
         // 소셜 서버로부터 소셜 연결 해제 또는 소셜 계정 탈퇴 등을 통지 받을 때 처리
         val userSocialEntity = userSocialRepository.findBySocialTypeAndSub(socialType, sub)
             ?: return Pair(null, null)
+        userSocialRepository.delete(userSocialEntity)
 
-        userSocialRepository.deleteBySocialUuid(userSocialEntity.socialUuid)
+        val userSocialMappingEntity = userSocialMappingRepository.findByIdSocialId(userSocialEntity.socialId!!)
+            ?: return Pair(userSocialEntity.socialId!!, null)
+        userSocialMappingRepository.delete(userSocialMappingEntity)
 
-        val serviceUserId = renewUserIdentitySocialUuid(socialType, userSocialEntity.socialUuid, null)
+        return Pair(userSocialEntity.socialId!!, userSocialMappingEntity.id.serviceUserId)
+    }
 
-        return Pair(userSocialEntity.socialUuid, serviceUserId)
+    @Transactional
+    fun saveUserSocialMapping(serviceUserId: Long, socialId: Long) {
+        userSocialMappingRepository.save(
+            JpaUserSocialMappingEntity(UserSocialMappingId(
+                serviceUserId = serviceUserId,
+                socialId = socialId,
+            ))
+        )
+    }
+
+    @Transactional
+    fun mergeAllSocialMappingServiceUserId(sourceServiceUserId: Long, targetServiceUserId: Long) {
+        userSocialMappingRepository.updateAllByServiceUserId(sourceServiceUserId, targetServiceUserId)
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun validateSocialUuid(socialUuid: String, socialType: SocialType) {
+    fun validateSocialUuid(socialUuid: String, socialType: SocialType): Long {
         // socialUuid 는 소셜 정보가 저장되고 5분간만 사용 가능
         if (!isUUID7AndGeneratedWithin(socialUuid, Duration.ofMinutes(5)))
             throw InvalidSocialException("socialUuid is invalid or too old: $socialUuid")
 
-        val userSocialEntity = userSocialRepository.findByIdOrNull(socialUuid)
+        val userSocialEntity = userSocialRepository.findBySocialUuid(socialUuid)
             ?: throw InvalidSocialException("userSocialEntity not found: $socialUuid in $socialType")
         if (userSocialEntity.socialType != socialType)
             throw InvalidSocialException("userSocialEntity type unmatched: ${userSocialEntity.socialType} != $socialType")
 
+        // 소셜 연결 상태 검증
         when (socialType) {
+            SocialType.KAKAO -> kakaoService.validateSocialStatus(userSocialEntity)
+            SocialType.APPLE,
+            SocialType.NAVER,
+            SocialType.GOOGLE -> TODO()
+        }
+
+        return userSocialEntity.socialId!!
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    fun validateSocialId(socialId: Long) {
+        val userSocialEntity = userSocialRepository.findByIdOrNull(socialId)
+            ?: throw InvalidSocialException("userSocialEntity not found: $socialId")
+
+        when (userSocialEntity.socialType) {
             SocialType.KAKAO -> kakaoService.validateSocialStatus(userSocialEntity)
             SocialType.APPLE,
             SocialType.NAVER,
@@ -115,30 +129,19 @@ class SocialService(
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun validateSocialTypeAndSub(socialType: SocialType, sub: String): String {
-        val userSocialEntity = userSocialRepository.findBySocialTypeAndSub(socialType, sub)
-            ?: throw InvalidSocialException("userSocialEntity not found: $sub in $socialType")
-
-        when (socialType) {
-            SocialType.KAKAO -> kakaoService.validateSocialStatus(userSocialEntity)
-            SocialType.APPLE,
-            SocialType.NAVER,
-            SocialType.GOOGLE -> TODO()
+    fun deleteAndRevokeSocialStatus(serviceUserId: Long? = null, socialId: Long) {
+        if (serviceUserId != null && serviceUserId != getServiceUserIdBy(socialId)) {
+            throw IllegalArgumentException("serviceUserId not matched: $serviceUserId != ${getServiceUserIdBy(socialId)}")
         }
+        userSocialMappingRepository.deleteByIdSocialId(socialId)
 
-        return userSocialEntity.socialUuid
-    }
+        val userSocialEntity = userSocialRepository.findByIdOrNull(socialId)
+        if (userSocialEntity != null) {
+            userSocialRepository.delete(userSocialEntity)
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun deleteSocialUuid(socialUuid: String, socialType: SocialType, revokeSocialStatus: Boolean) {
-        val userSocialEntity = userSocialRepository.findByIdOrNull(socialUuid)
-            ?: return
-        userSocialRepository.deleteBySocialUuid(socialUuid)
-
-        if (revokeSocialStatus) {
             // 소셜 서버로 요청은 별도 스레드에서 비동기로 요청하며, 실패해도 무시함
             asyncExecutor.execute {
-                when (socialType) {
+                when (userSocialEntity.socialType) {
                     SocialType.KAKAO -> kakaoService.revokeSocialStatus(userSocialEntity.sub)
                     SocialType.APPLE,
                     SocialType.NAVER,
@@ -146,19 +149,6 @@ class SocialService(
                 }
             }
         }
-    }
-
-    private fun renewUserIdentitySocialUuid(socialType: SocialType, oldSocialUuid: String, newSocialUuid: String?): Long? {
-        val userIdentityEntity = when (socialType) {
-            SocialType.KAKAO -> userIdentityRepository.findByKakaoUuid(oldSocialUuid)
-            SocialType.APPLE -> userIdentityRepository.findByAppleUuid(oldSocialUuid)
-            SocialType.NAVER -> userIdentityRepository.findByNaverUuid(oldSocialUuid)
-            SocialType.GOOGLE -> userIdentityRepository.findByGoogleUuid(oldSocialUuid)
-        } ?: return null
-
-        userIdentityEntity.setSocialUuid(socialType, newSocialUuid)
-
-        return userIdentityEntity.serviceUserId!!
     }
 
     private fun randomUUID7(): String {

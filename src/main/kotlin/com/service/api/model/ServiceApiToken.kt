@@ -36,6 +36,9 @@ sealed class ServiceApiTokenPayload {
     @get:JsonProperty("service_user_id")
     abstract val serviceUserId: Long
 
+    @get:JsonProperty("social_id")
+    abstract val socialId: Long
+
     @get:JsonProperty("custom_device_id")
     abstract val customDeviceId: String
 
@@ -60,6 +63,9 @@ data class ServiceApiAccessTokenPayload(
     @JsonProperty("service_user_id")
     override val serviceUserId: Long,
 
+    @JsonProperty("social_id")
+    override val socialId: Long,
+
     @JsonProperty("custom_device_id")
     override val customDeviceId: String,
 
@@ -82,6 +88,7 @@ data class ServiceApiAccessTokenPayload(
             @JsonProperty("iat") iat: Long,
             @JsonProperty("exp") exp: Long,
             @JsonProperty("service_user_id") serviceUserId: Long,
+            @JsonProperty("social_id") socialId: Long,
             @JsonProperty("custom_device_id") customDeviceId: String,
             @JsonProperty("device_model") deviceModel: String,
             @JsonProperty("os_type") osType: OsType,
@@ -99,6 +106,7 @@ data class ServiceApiAccessTokenPayload(
                 iat = iat,
                 exp = exp,
                 serviceUserId = serviceUserId,
+                socialId = socialId,
                 customDeviceId = customDeviceId,
                 deviceModel = deviceModel,
                 osType = osType,
@@ -109,12 +117,6 @@ data class ServiceApiAccessTokenPayload(
 
 /** 리프레시 토큰 */
 data class ServiceApiRefreshTokenPayload(
-    @JsonProperty("social_type")
-    val socialType: SocialType,
-
-    @JsonProperty("sub")
-    val sub: String,
-
     @JsonProperty("iat")
     override val iat: Long,
 
@@ -123,6 +125,9 @@ data class ServiceApiRefreshTokenPayload(
 
     @JsonProperty("service_user_id")
     override val serviceUserId: Long,
+
+    @JsonProperty("social_id")
+    override val socialId: Long,
 
     @JsonProperty("custom_device_id")
     override val customDeviceId: String,
@@ -142,11 +147,10 @@ data class ServiceApiRefreshTokenPayload(
         @JvmStatic
         @JsonCreator
         fun create(
-            @JsonProperty("social_type") socialType: SocialType,
-            @JsonProperty("sub") sub: String,
             @JsonProperty("iat") iat: Long,
             @JsonProperty("exp") exp: Long,
             @JsonProperty("service_user_id") serviceUserId: Long,
+            @JsonProperty("social_id") socialId: Long,
             @JsonProperty("custom_device_id") customDeviceId: String,
             @JsonProperty("device_model") deviceModel: String,
             @JsonProperty("os_type") osType: OsType,
@@ -160,11 +164,10 @@ data class ServiceApiRefreshTokenPayload(
                 throw InvalidTokenException("Invalid token_type for refresh token: $tokenTypeRaw")
             }
             return ServiceApiRefreshTokenPayload(
-                socialType = socialType,
-                sub = sub,
                 iat = iat,
                 exp = exp,
                 serviceUserId = serviceUserId,
+                socialId = socialId,
                 customDeviceId = customDeviceId,
                 deviceModel = deviceModel,
                 osType = osType,

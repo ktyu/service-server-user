@@ -1,57 +1,51 @@
 package com.service.api.service
 
 import com.google.firebase.auth.FirebaseAuth
-import com.service.api.common.AgeGroup
-import com.service.api.common.enum.GenderType
+import com.service.api.common.enum.AgeGroup
 import com.service.api.common.enum.OsType
-import com.service.api.common.enum.SocialType
 import com.service.api.common.enum.VoterType
 import com.service.api.common.exception.ServiceUserNotFoundException
-import com.service.api.common.exception.Under14SignupFailException
 import com.service.api.model.Device
 import com.service.api.model.Profile
 import com.service.api.model.TermsAgreement
 import com.service.api.model.User
-import com.service.api.persistence.entity.JpaUserIdentityEntity
 import com.service.api.persistence.entity.JpaUserProfileEntity
 import com.service.api.persistence.repository.*
 import com.service.api.persistence.mapper.DeviceMapper
 import com.service.api.persistence.mapper.ProfileMapper
 import com.service.api.service.social.SocialService
-import com.service.api.util.Sha256HashingUtil
 import org.slf4j.LoggerFactory
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Period
-import java.util.*
 import kotlin.random.Random
 
 @Service
 class UserService(
     private val termsService: TermsService,
     private val deviceService: DeviceService,
+    private val identityService: IdentityService,
     private val socialService: SocialService,
-    private val userIdentityRepository: UserIdentityRepository,
     private val userProfileRepository: UserProfileRepository,
+    private val userRepository: UserRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun getUserWithDevice(serviceUserId: Long, customDeviceId: String): User {
-        val projection = userIdentityRepository.findUserProjectionByServiceUserIdAndCustomDeviceIdAndDeletedAtIsNull(serviceUserId, customDeviceId)
+        val projection = userRepository.findUserProjectionBy(serviceUserId = serviceUserId, customDeviceId = customDeviceId)
             ?: throw ServiceUserNotFoundException(serviceUserId)
+        val socialAccounts = userRepository.findSocialAccountsBy(serviceUserId = serviceUserId)
 
-        return with (projection) {
+        with (projection) {
             val isProfileCompleted = profile.district != null && profile.interestFields != null && profile.interestLevel != null
-            User(
+            return User(
                 profile = ProfileMapper.toModel(profile),
                 device = device?.let { DeviceMapper.toModel(it) },
-                email = identity.getLatestSocialUuid()?.let { socialService.getEmail(it) } ?: "",
-                voterType = makeVoterType(isProfileCompleted, identity.isForeigner, identity.birthdate),
-                ageGroup = AgeGroup.fromBirthdate(identity.birthdate),
-                socialTypes = identity.getExistSocials().map { it.first }
+                voterType = makeVoterType(isProfileCompleted, identity?.isForeigner, identity?.birthdate),
+                ageGroup = AgeGroup.fromBirthdate(identity?.birthdate),
+                socialAccounts = socialAccounts,
             )
         }
     }
@@ -65,79 +59,25 @@ class UserService(
     }
 
     @Transactional
-    fun createUser(termsAgreements: List<TermsAgreement>, socialType: SocialType, socialUuid: String, identityToken: String): Long {
+    fun createUser(termsAgreements: List<TermsAgreement>, socialId: Long): Long {
         // 약관 동의 상태 검사
         val termsAgreementMap = termsService.validateTermsAgreements(termsAgreements)
 
-        // 소셜 연결 상태 검증
-        socialService.validateSocialUuid(socialUuid, socialType)
-
-        // TODO: MDL_TKN(identityToken) 값 보내서 본인인증 결과 받아오고 가공하기
-        val hashedCi = Sha256HashingUtil.sha256Hex(identityToken, "service")
-        val isForeigner: Boolean
-        val gender: GenderType
-        val birthdate: LocalDate
-        try {
-            val num = String(Base64.getUrlDecoder().decode(identityToken)).split("@")[1].split("-")
-            if ((num[1].toInt() in 1..8).not()) throw RuntimeException()
-            isForeigner = num[1].toInt() >= 5 // 뒷자리가 5~8 면 외국인
-            gender = if (num[1].toInt() % 2 == 0) GenderType.F else GenderType.M
-            birthdate = LocalDate.parse("${if (num[1].toInt() <= 2) 19 else 20}${num[0]}", java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
-        } catch (e: Exception) {
-            throw IllegalArgumentException("invalid MDL_TKN: $identityToken")
+        // 소셜 계정 사용 여부 검사
+        if (socialService.getServiceUserIdBy(socialId) != null) {
+            throw IllegalArgumentException("already using social account! should use login API")
         }
 
-        // 만 14세 미만은 가입시도 하면 안됨
-        if (AgeGroup.getAge(birthdate) < 14) {
-            throw Under14SignupFailException("age is smaller than 14")
-        }
+        // 유저 생성
+        val userProfileEntity = userProfileRepository.save(JpaUserProfileEntity(
+            nickname = "랜덤닉네임${Random.nextInt()}", // TODO: 최초 닉네임 랜덤 생성 정책 정의 및 반영 필요
+            termsAgreements = termsAgreementMap,
+        ))
 
-        val userIdentityEntity = userIdentityRepository.findByHashedCi(hashedCi)
-            ?.apply {
-                // 이미 가입된 CI 일 경우 정보 비교
-                if (this.getSocialUuid(socialType) == socialUuid)
-                    throw IllegalArgumentException("should call login API")
-                if (this.deletedAt != null)
-                    throw RuntimeException("should not happened. deleted user still has hashedCi")
-                if (this.isForeigner != isForeigner || this.gender != gender || this.birthdate != birthdate) {
-                    // CI는 그대로인데 본인인증 결과 정보가 달라졌으면 에러 로깅만 남김 (실제 발생은 안할 것으로 기대)
-                    log.error("permanent info changed... {}/{}, {}/{}, {}/{}",
-                        this.isForeigner, isForeigner, this.gender, gender, this.birthdate, birthdate)
-                }
+        // 유저-소셜 매핑 정보 저장
+        socialService.saveUserSocialMapping(userProfileEntity.serviceUserId!!, socialId)
 
-                // 기존 사용자의 정보 중에서 소셜 연결 정보만 전부 날림 (추후 소셜 계정 멀티 매핑 가능하도록 변경되면 수정 필요)
-                this.getExistSocials().forEach { (type, uuid) ->
-                    this.setSocialUuid(type, null)
-                    socialService.deleteSocialUuid(uuid, type, false)
-                }
-            }
-            ?: JpaUserIdentityEntity(
-                // 가입되지 않은 CI 일 경우 새로 user 생성
-                hashedCi = hashedCi,
-                isForeigner = isForeigner,
-                gender = gender,
-                birthdate = birthdate,
-            )
-        userIdentityEntity.setSocialUuid(socialType, socialUuid)
-        userIdentityRepository.save(userIdentityEntity)
-
-        val userProfileEntity = userProfileRepository.findByIdOrNull(userIdentityEntity.serviceUserId!!)
-            ?.apply {
-                if (this.deletedAt != null)
-                    throw RuntimeException("should not happened. existing user profile is deleted")
-
-                // 기존 사용자였으면 약관 동의 정보만 이번 동의 정보로 바꿔줌
-                this.termsAgreements = termsAgreementMap
-            }
-            ?: JpaUserProfileEntity(
-                // 신규 사용자
-                serviceUserId = userIdentityEntity.serviceUserId!!,
-                nickname = "랜덤닉네임${Random.nextInt()}", // TODO: 최초 닉네임 랜덤 생성 정책 정의 및 반영 필요
-                termsAgreements = termsAgreementMap,
-            )
-        userProfileRepository.save(userProfileEntity)
-
-        return userIdentityEntity.serviceUserId!!
+        return userProfileEntity.serviceUserId!!
     }
 
     @Transactional
@@ -145,12 +85,20 @@ class UserService(
         if (profile != null) {
             val userProfileEntity = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(serviceUserId)
                 ?: throw ServiceUserNotFoundException(serviceUserId)
-            profile.nickname?.trim()?.takeIf { isAllowedNickname(it) && isExistingNickname(it).not() }!!.let { userProfileEntity.nickname = it }
+            profile.nickname?.trim()?.let {
+                if (!isAllowedNickname(it) || isExistingNickname(it))
+                    throw IllegalArgumentException("check nickname availability")
+                userProfileEntity.nickname = it
+                userProfileEntity.nicknameUpdatedAt = LocalDateTime.now()
+            }
             profile.imageUrl?.let { userProfileEntity.imageUrl = it }
             profile.district?.let { userProfileEntity.district = it }
             profile.interestFields?.let { userProfileEntity.interestFields = it }
             profile.interestLevel?.let { userProfileEntity.interestLevel = it }
-            profile.termsAgreements?.let { userProfileEntity.termsAgreements = termsService.validateTermsAgreements(it) }
+            profile.termsAgreements?.let {
+                userProfileEntity.termsAgreements = termsService.validateTermsAgreements(it)
+                userProfileEntity.termsAgreementsUpdatedAt = LocalDateTime.now()
+            }
         }
 
         if (device != null) {
@@ -159,19 +107,41 @@ class UserService(
     }
 
     @Transactional
-    fun deleteUser(serviceUserId: Long) {
-        userIdentityRepository.findByIdOrNull(serviceUserId)?.apply {
-            this.hashedCi = null
-            this.getExistSocials().forEach { (type, uuid) ->
-                this.setSocialUuid(type, null)
-                socialService.deleteSocialUuid(uuid, type, true)
-            }
-            this.deletedAt = LocalDateTime.now()
-        }
+    fun mergeUser(sourceServiceUserId: Long, socialId: Long, targetServiceUserId: Long) {
+        // source profile 은 삭제하고, 닉네임 & 약관동의 이력을 target profile 과 병합
+        val sourceProfile = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(sourceServiceUserId)
+            ?: throw ServiceUserNotFoundException(sourceServiceUserId)
+        userProfileRepository.delete(sourceProfile)
 
+        val targetProfile = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(targetServiceUserId)
+            ?: throw ServiceUserNotFoundException(sourceServiceUserId)
+        if (sourceProfile.nicknameUpdatedAt.isAfter(targetProfile.nicknameUpdatedAt)) {
+            targetProfile.nickname = sourceProfile.nickname
+            targetProfile.nicknameUpdatedAt = sourceProfile.nicknameUpdatedAt
+        }
+        targetProfile.termsAgreements = termsService.mergeTermsAgreements(sourceProfile.termsAgreements, targetProfile.termsAgreements)
+        targetProfile.termsAgreementsUpdatedAt = maxOf(sourceProfile.termsAgreementsUpdatedAt, targetProfile.termsAgreementsUpdatedAt)
+
+        // source 의 device 들을 target 으로 이관
+        deviceService.mergeAllDeviceServiceUserId(sourceServiceUserId, targetServiceUserId)
+
+        // source 의 social mapping 들을 target 으로 이관
+        socialService.mergeAllSocialMappingServiceUserId(sourceServiceUserId, targetServiceUserId)
+    }
+
+    @Transactional
+    fun deleteUser(serviceUserId: Long) {
         userProfileRepository.markDeletedByServiceUserId(serviceUserId)
 
         deviceService.deleteAllDevice(serviceUserId)
+
+        identityService.getIdentityIdBy(serviceUserId = serviceUserId)?.let { identityId ->
+            identityService.deleteIdentity(identityId = identityId)
+        }
+
+        userRepository.findSocialAccountsBy(serviceUserId = serviceUserId).forEach { socialAccount ->
+            socialService.deleteAndRevokeSocialStatus(socialId = socialAccount.id)
+        }
     }
 
     fun makeFirebaseCustomToken(serviceUserId: Long, customDeviceId: String, osType: OsType, deviceModel: String): String {
@@ -183,8 +153,8 @@ class UserService(
         return FirebaseAuth.getInstance().createCustomToken(serviceUserId.toString(), claims)
     }
 
-    private fun makeVoterType(isProfileCompleted: Boolean, isForeigner: Boolean, birthdate: LocalDate): VoterType {
-        if (!isProfileCompleted)
+    private fun makeVoterType(isProfileCompleted: Boolean, isForeigner: Boolean?, birthdate: LocalDate?): VoterType {
+        if (!isProfileCompleted || isForeigner == null || birthdate == null)
             return VoterType.INCOMPLETE
 
         if (isForeigner)
