@@ -1,12 +1,8 @@
 package com.service.api.model
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.service.api.common.InterestField
 import com.service.api.common.enum.*
-import com.service.api.persistence.entity.JpaUserDeviceEntity
-import com.service.api.persistence.entity.JpaUserIdentityEntity
-import com.service.api.persistence.entity.JpaUserProfileEntity
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class User(
@@ -42,9 +38,3 @@ data class SocialAccount(
     val socialType: SocialType,
     val email: String,
 )
-
-interface UserProjection {
-    val profile: JpaUserProfileEntity
-    val device: JpaUserDeviceEntity?
-    val identity: JpaUserIdentityEntity?
-}

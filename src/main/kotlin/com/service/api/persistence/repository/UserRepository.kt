@@ -2,6 +2,7 @@ package com.service.api.persistence.repository
 
 import com.service.api.model.SocialAccount
 import com.service.api.model.UserProjection
+import com.service.api.model.UserVoteEligibility
 import com.service.api.persistence.entity.JpaUserProfileEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
@@ -33,4 +34,15 @@ interface UserRepository : JpaRepository<JpaUserProfileEntity, Long> {
         WHERE sm.id.serviceUserId = :serviceUserId
     """)
     fun findSocialAccountsBy(serviceUserId: Long): List<SocialAccount>
+
+    @Query("""
+        SELECT new com.service.api.model.UserVoteEligibility(
+            p.district, p.interestFields, p.interestLevel, i.isForeigner, i.birthdate
+        )
+        FROM JpaUserProfileEntity p
+        LEFT JOIN JpaUserIdentityMappingEntity im ON im.id.serviceUserId = p.serviceUserId
+        LEFT JOIN JpaUserIdentityEntity i ON i.identityId = im.id.identityId
+        WHERE p.serviceUserId = :serviceUserId
+    """)
+    fun findUserVoteEligibilityBy(serviceUserId: Long): UserVoteEligibility?
 }

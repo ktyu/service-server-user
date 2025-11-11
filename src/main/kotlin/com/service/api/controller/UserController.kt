@@ -24,7 +24,7 @@ class UserController(
     fun getCurrentUser(): Response<User> {
         val ctx = ApiRequestContextHolder.get()
         return Response.success(
-            userService.getUserWithDevice(ctx.serviceUserId!!, ctx.customDeviceId)
+            userService.getUserWithDevice(ctx.serviceUserId!!, ctx.socialId!!, ctx.customDeviceId)
         )
     }
 
@@ -67,12 +67,10 @@ class UserController(
     @GetMapping("/v1/user/nickname-availability")
     @Auth
     fun checkNicknameAvailability(@RequestParam nickname: String): Response<NicknameAvailabilityResponse> {
-        return Response.success(nickname.trim().let {
-            NicknameAvailabilityResponse(
-                nickname = it,
-                isForbidden = userService.isAllowedNickname(it).not(),
-                isOccupied = userService.isExistingNickname(it),
-            )
-        })
+        return Response.success(NicknameAvailabilityResponse(
+            nickname = nickname,
+            isForbidden = userService.isAllowedNickname(nickname).not(),
+            isOccupied = userService.isExistingNickname(nickname),
+        ))
     }
 }

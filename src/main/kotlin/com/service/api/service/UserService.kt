@@ -2,13 +2,11 @@ package com.service.api.service
 
 import com.google.firebase.auth.FirebaseAuth
 import com.service.api.common.enum.AgeGroup
+import com.service.api.common.enum.District
 import com.service.api.common.enum.OsType
 import com.service.api.common.enum.VoterType
 import com.service.api.common.exception.ServiceUserNotFoundException
-import com.service.api.model.Device
-import com.service.api.model.Profile
-import com.service.api.model.TermsAgreement
-import com.service.api.model.User
+import com.service.api.model.*
 import com.service.api.persistence.entity.JpaUserProfileEntity
 import com.service.api.persistence.repository.*
 import com.service.api.persistence.mapper.DeviceMapper
@@ -17,9 +15,7 @@ import com.service.api.service.social.SocialService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.Period
 import kotlin.random.Random
 
 @Service
@@ -33,17 +29,28 @@ class UserService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun getUserWithDevice(serviceUserId: Long, customDeviceId: String): User {
+    fun getUserWithDevice(serviceUserId: Long, socialId: Long, customDeviceId: String): User {
         val projection = userRepository.findUserProjectionBy(serviceUserId = serviceUserId, customDeviceId = customDeviceId)
             ?: throw ServiceUserNotFoundException(serviceUserId)
-        val socialAccounts = userRepository.findSocialAccountsBy(serviceUserId = serviceUserId)
-
         with (projection) {
-            val isProfileCompleted = profile.district != null && profile.interestFields != null && profile.interestLevel != null
+            val voteEligibility = UserVoteEligibility(
+                district = profile.district,
+                interestFields = profile.interestFields,
+                interestLevel = profile.interestLevel,
+                isForeigner = identity?.isForeigner,
+                birthdate = identity?.birthdate,
+            )
+
+            val socialAccounts = userRepository.findSocialAccountsBy(serviceUserId = serviceUserId).run {
+                val current = firstOrNull { it.id == socialId }
+                    ?: throw RuntimeException("socialId is missing in socialAccounts: $socialId")
+                listOf(current) + filterNot { it == current } // 현재 로그인된 소셜 계정을 첫 번째 원소로 둠
+            }
+
             return User(
                 profile = ProfileMapper.toModel(profile),
                 device = device?.let { DeviceMapper.toModel(it) },
-                voterType = makeVoterType(isProfileCompleted, identity?.isForeigner, identity?.birthdate),
+                voterType = UserVoteEligibility.makeVoterType(voteEligibility),
                 ageGroup = AgeGroup.fromBirthdate(identity?.birthdate),
                 socialAccounts = socialAccounts,
             )
@@ -55,7 +62,15 @@ class UserService(
     }
 
     fun isAllowedNickname(nickname: String): Boolean {
-        return nickname !in listOf("관리자", "운영자") // TODO: 정확한 정책 정해지면 구현 필요
+        return nickname.trim() !in listOf("관리자", "운영자") // TODO: 정확한 정책 정해지면 구현 필요
+    }
+
+    fun getDistrictAndAgeGroupIfEligibleOrNull(serviceUserId: Long): Pair<District, AgeGroup>? {
+        userRepository.findUserVoteEligibilityBy(serviceUserId)?.let {
+            if (UserVoteEligibility.makeVoterType(it) == VoterType.ELIGIBLE)
+                return Pair(it.district!!, AgeGroup.fromBirthdate(it.birthdate!!))
+        }
+        return null
     }
 
     @Transactional
@@ -151,19 +166,5 @@ class UserService(
             "deviceModel" to deviceModel,
         )
         return FirebaseAuth.getInstance().createCustomToken(serviceUserId.toString(), claims)
-    }
-
-    private fun makeVoterType(isProfileCompleted: Boolean, isForeigner: Boolean?, birthdate: LocalDate?): VoterType {
-        if (!isProfileCompleted || isForeigner == null || birthdate == null)
-            return VoterType.INCOMPLETE
-
-        if (isForeigner)
-            return VoterType.FOREIGNER
-
-        val age = Period.between(birthdate, LocalDate.now()).years
-        if (age < 18)
-            return VoterType.UNDERAGE
-
-        return VoterType.ELIGIBLE
     }
 }
