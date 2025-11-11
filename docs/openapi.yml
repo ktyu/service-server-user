@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: SERVICE 서비스 서버 API
-  version: 2025.11.10
+  version: 2025.11.11
   description: |-
     SERVICE 서비스 제공을 위한 서버 API 명세 입니다.
 
@@ -343,7 +343,6 @@ paths:
                   summary: 로그아웃 성공
                   value:
                     code: SUCCESS
-                    message: Success
         '401':
           $ref: "#/components/responses/401Unauthorized"
         '426':
@@ -417,7 +416,6 @@ paths:
                   summary: 수정 성공
                   value:
                     code: SUCCESS
-                    message: Success
         '401':
           $ref: "#/components/responses/401Unauthorized"
         '426':
@@ -442,7 +440,6 @@ paths:
                   summary: 탈퇴 성공
                   value:
                     code: SUCCESS
-                    message: Success
         '401':
           $ref: "#/components/responses/401Unauthorized"
         '426':
@@ -497,7 +494,6 @@ paths:
                   summary: 연동 해제 성공
                   value:
                     code: SUCCESS
-                    message: Success
   /v1/user/nickname-availability:
     get:
       tags:
