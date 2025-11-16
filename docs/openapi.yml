@@ -224,12 +224,9 @@ paths:
             schema:
               type: object
               properties:
-                serviceUserId:
-                  $ref: '#/components/schemas/ServiceUserId'
                 refreshToken:
                   $ref: '#/components/schemas/RefreshToken'
               required:
-                - serviceUserId
                 - refreshToken
       responses:
         '200':

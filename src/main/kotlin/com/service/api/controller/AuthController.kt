@@ -54,7 +54,7 @@ class AuthController(
     @PutMapping("/v1/auth/refresh")
     fun refreshTokens(@Valid @RequestBody req: RefreshRequest): Response<RefreshResponse> {
         return with (req) {
-            val (accessToken, refreshToken) = deviceService.refreshTokens(serviceUserId, refreshToken)
+            val (accessToken, refreshToken) = deviceService.refreshTokens(refreshToken)
 
             Response.success(RefreshResponse(accessToken, refreshToken))
         }

@@ -91,8 +91,17 @@ class DeviceService(
     }
 
     @Transactional
-    fun refreshTokens(serviceUserId: Long, refreshToken: String): Pair<String, String?> {
+    fun refreshTokens(refreshToken: String): Pair<String, String?> {
         val ctx = ApiRequestContextHolder.get()
+
+        // refreshToken 유효성 확인
+        val refreshTokenPayload = try {(getServiceApiTokenPayload(refreshToken) as? ServiceApiRefreshTokenPayload)
+            ?: throw InvalidTokenException("ServiceApiRefreshTokenPayload class cast fail")
+        } catch (e: ExpiredTokenException) {
+            throw InvalidTokenException("refresh token expired: ${e.message}")
+        }
+        val serviceUserId = refreshTokenPayload.serviceUserId
+
         val userDeviceEntity = userDeviceRepository.findByIdAndDeletedAtIsNull(UserDeviceId(serviceUserId, ctx.customDeviceId))
             ?.apply {
                 // 요청 헤더와 DB 디바이스 정보 간 (customDeviceId, deviceModel, osType) 일치 여부 검증
@@ -111,17 +120,8 @@ class DeviceService(
             }
             ?: throw InvalidTokenException("UserDeviceEntity not found: ${serviceUserId}/${ctx.customDeviceId}")
 
-        // refreshToken 유효성 확인
-        val refreshTokenPayload = try {(getServiceApiTokenPayload(refreshToken) as? ServiceApiRefreshTokenPayload)
-            ?: throw InvalidTokenException("ServiceApiRefreshTokenPayload class cast fail")
-        } catch (e: ExpiredTokenException) {
-            throw InvalidTokenException("refresh token expired: ${e.message}")
-        }
-
         with (refreshTokenPayload) {
             // refresh token 과 파라미터/DB 정보 매칭 검증
-            if (this.serviceUserId != serviceUserId)
-                throw InvalidTokenException("serviceUserId unmatched: ${this.serviceUserId} != $serviceUserId")
             if (this.iat != userDeviceEntity.refreshTokenIssuedAt)
                 throw InvalidTokenException("invalid refresh token iat: ${this.iat} != ${userDeviceEntity.refreshTokenIssuedAt}")
             if (this.deviceModel != userDeviceEntity.deviceModel || this.osType != userDeviceEntity.osType)
