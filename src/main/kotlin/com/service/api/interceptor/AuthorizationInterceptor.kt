@@ -39,7 +39,7 @@ class AuthorizationInterceptor(
                     if (v.accessTokenIat != iat || v.osVersion != ctx.osVersion || v.appVersion != ctx.appVersion)
                         throw ExpiredTokenException("deviceVersion unmatched: $v != $iat/${ctx.osVersion}/${ctx.appVersion}")
                 }
-                ?: throw InvalidTokenException("deviceVersion not found: $serviceUserId/$customDeviceId")
+                ?: throw InvalidTokenException("deviceVersion not found: $serviceUserId/$customDeviceId/$deviceModel/$osType")
         }
 
         return joinPoint.proceed()

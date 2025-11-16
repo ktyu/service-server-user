@@ -1,6 +1,7 @@
 package com.service.api.controller
 
 import com.service.api.common.ApiRequestContextHolder
+import com.service.api.common.exception.RefreshTokenFailedException
 import com.service.api.dto.*
 import com.service.api.interceptor.Auth
 import com.service.api.service.DeviceService
@@ -62,7 +63,7 @@ class AuthController(
     @PostMapping("/v1/auth/identity")
     @Auth
     fun saveIdentity(@Valid @RequestBody req: SaveIdentityRequest): Response<SaveIdentityResponse> {
-        return with (req) {
+        return try { with (req) {
             val ctx = ApiRequestContextHolder.get()
             val mappedServiceUserId = identityService.saveIdentity(MDL_TKN, ctx.serviceUserId!!, ctx.socialId!!)
             if (ctx.serviceUserId!! != mappedServiceUserId) {
@@ -73,6 +74,8 @@ class AuthController(
             } else {
                 Response.success(SaveIdentityResponse(false))
             }
+        }} catch (e: Exception) {
+            throw RefreshTokenFailedException("$e")
         }
     }
 

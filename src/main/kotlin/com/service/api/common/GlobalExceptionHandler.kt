@@ -22,24 +22,6 @@ class GlobalExceptionHandler {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // ===== 401 토큰 만료 (토큰 갱신 필요) =====
-    @ExceptionHandler(ExpiredTokenException::class)
-    fun handleUnauthorized(ex: ExpiredTokenException): ResponseEntity<Void> {
-        log.debug("[401-UNAUTHORIZED] {}", ex.message)
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
-    }
-
-    // ===== 423 유효하지 않은 유저/인증 상태 (강제 로그아웃 필요) =====
-    @ExceptionHandler(
-        InvalidTokenException::class,
-        InvalidSocialException::class,
-        ServiceUserNotFoundException::class,
-    )
-    fun handleLocked(ex: RuntimeException): ResponseEntity<Void> {
-        log.debug("[423-LOCKED] {}", ex.message, ex)
-        return ResponseEntity.status(HttpStatus.LOCKED).build()
-    }
-
     // ===== 400 잘못된 요청 =====
     @ExceptionHandler(
         MethodArgumentNotValidException::class,
@@ -58,9 +40,31 @@ class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
     }
 
+    // ===== 401 인증 실패 (엑세스 토큰 리프레시 필요) =====
+    @ExceptionHandler(
+        // 토큰 만료
+        ExpiredTokenException::class,
+
+        // 유효하지 않은 인증
+        InvalidTokenException::class,
+        InvalidSocialException::class,
+        ServiceUserNotFoundException::class,
+    )
+    fun handleUnauthorized(ex: ExpiredTokenException): ResponseEntity<Void> {
+        log.debug("[401-UNAUTHORIZED] {}", ex.message)
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+    }
+
+    // ===== 403 토큰 갱신 실패 (로그아웃 필요) =====
+    @ExceptionHandler(RefreshTokenFailedException::class)
+    fun handleForbidden(ex: RefreshTokenFailedException): ResponseEntity<Void> {
+        log.debug("[403-FORBIDDEN] {}", ex.message)
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+    }
+
     // ===== 마지막: 예상치 못한 예외 =====
     @ExceptionHandler(Exception::class)
-    fun handleUnknown(ex: Exception, request: HttpServletRequest): ResponseEntity<Void> {
+    fun handleUnknown(ex: Exception): ResponseEntity<Void> {
         log.error("[500-INTERNAL_SERVER_ERROR] {}", ex.message, ex)
         return ResponseEntity.internalServerError().build()
     }
