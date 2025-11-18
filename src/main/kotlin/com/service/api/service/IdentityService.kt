@@ -1,5 +1,6 @@
 package com.service.api.service
 
+import com.service.api.common.enum.AgeGroup
 import com.service.api.common.enum.GenderType
 import com.service.api.persistence.entity.JpaUserIdentityEntity
 import com.service.api.persistence.entity.JpaUserIdentityMappingEntity
@@ -25,7 +26,7 @@ class IdentityService(
     }
 
     @Transactional
-    fun saveIdentity(identityToken: String, serviceUserId: Long, socialId: Long): Long {
+    fun saveIdentity(identityToken: String, serviceUserId: Long, socialId: Long): Pair<Long, AgeGroup> {
         // TODO: MDL_TKN(identityToken) 값 보내서 본인인증 결과 받아오고 가공하기
         val hashedCi = Sha256HashingUtil.sha256Hex(identityToken, "service")
         val isForeigner: Boolean
@@ -72,13 +73,14 @@ class IdentityService(
                     serviceUserId = serviceUserId,
                     identityId = userIdentityEntity.identityId!!,
                 ))
-            ).id.serviceUserId
+            )
+            Pair(serviceUserId, AgeGroup.fromBirthdate(birthdate))
         } else if (existingMappedServiceUserId != serviceUserId) {
             // 계정 병합 필요
-            existingMappedServiceUserId
+            Pair(existingMappedServiceUserId, AgeGroup.fromBirthdate(birthdate))
         } else {
             log.warn("duplicate identity mapping is saving: ${userIdentityEntity.identityId}")
-            serviceUserId
+            Pair(serviceUserId, AgeGroup.fromBirthdate(birthdate))
         }
     }
 

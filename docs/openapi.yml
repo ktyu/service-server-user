@@ -301,6 +301,7 @@ paths:
                             $ref: '#/components/schemas/RefreshToken'
                         required:
                           - isMerged
+                          - ageGroup
               examples:
                 normalOk:
                   summary: 등록 성공 (계정 병합 미발생)
@@ -309,6 +310,7 @@ paths:
                     message: Success
                     content:
                       isMerged: false
+                      ageGroup: SIXTIES
                 mergedOk:
                   summary: 등록 성공 (계정 병합 발생)
                   value:
@@ -316,6 +318,7 @@ paths:
                     message: Success
                     content:
                       isMerged: true
+                      ageGroup: SIXTIES
                       serviceUserId: 1
                       accessToken: string
                       refreshToken: string

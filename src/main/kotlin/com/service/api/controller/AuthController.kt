@@ -65,14 +65,14 @@ class AuthController(
     fun saveIdentity(@Valid @RequestBody req: SaveIdentityRequest): Response<SaveIdentityResponse> {
         return try { with (req) {
             val ctx = ApiRequestContextHolder.get()
-            val mappedServiceUserId = identityService.saveIdentity(MDL_TKN, ctx.serviceUserId!!, ctx.socialId!!)
+            val (mappedServiceUserId, ageGroup) = identityService.saveIdentity(MDL_TKN, ctx.serviceUserId!!, ctx.socialId!!)
             if (ctx.serviceUserId!! != mappedServiceUserId) {
                 userService.mergeUser(ctx.serviceUserId!!, ctx.socialId!!, mappedServiceUserId)
                 val (accessToken, refreshToken) = deviceService.saveDevice(mappedServiceUserId, ctx.socialId!!)
 
-                Response.success(SaveIdentityResponse(true, mappedServiceUserId, accessToken, refreshToken))
+                Response.success(SaveIdentityResponse(true, ageGroup, mappedServiceUserId, accessToken, refreshToken))
             } else {
-                Response.success(SaveIdentityResponse(false))
+                Response.success(SaveIdentityResponse(false, ageGroup))
             }
         }} catch (e: Exception) {
             throw RefreshTokenFailedException("$e")
