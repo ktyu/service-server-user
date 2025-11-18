@@ -293,6 +293,8 @@ paths:
                           isMerged:
                             type: boolean
                             description: 본인인증 완료하면서 계정이 통합된 경우 true
+                          ageGroup:
+                            $ref: '#/components/schemas/AgeGroup'
                           serviceUserId:
                             $ref: '#/components/schemas/ServiceUserId'
                           accessToken:
