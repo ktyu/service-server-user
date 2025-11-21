@@ -50,7 +50,7 @@ class GlobalExceptionHandler {
         InvalidSocialException::class,
         ServiceUserNotFoundException::class,
     )
-    fun handleUnauthorized(ex: ExpiredTokenException): ResponseEntity<Void> {
+    fun handleUnauthorized(ex: Exception): ResponseEntity<Void> {
         log.debug("[401-UNAUTHORIZED] {}", ex.message)
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
     }
