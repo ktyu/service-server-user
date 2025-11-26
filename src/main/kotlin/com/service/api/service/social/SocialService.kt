@@ -95,8 +95,8 @@ class SocialService(
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun validateSocialUuid(socialUuid: String, socialType: SocialType): Long {
-        // socialUuid 는 소셜 정보가 저장되고 5분간만 사용 가능
-        if (!isUUID7AndGeneratedWithin(socialUuid, Duration.ofMinutes(5)))
+        // socialUuid 는 소셜 정보가 저장되고 10분간만 사용 가능
+        if (!isUUID7AndGeneratedWithin(socialUuid, Duration.ofMinutes(10)))
             throw InvalidSocialException("socialUuid is invalid or too old: $socialUuid")
 
         val userSocialEntity = userSocialRepository.findBySocialUuid(socialUuid)
