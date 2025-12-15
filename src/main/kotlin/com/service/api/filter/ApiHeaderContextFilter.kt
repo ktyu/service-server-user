@@ -10,7 +10,6 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.web.filter.OncePerRequestFilter
-import java.util.*
 
 class ApiHeaderContextFilter : OncePerRequestFilter() {
 
@@ -22,19 +21,14 @@ class ApiHeaderContextFilter : OncePerRequestFilter() {
         filterChain: FilterChain
     ) {
         try {
-            // (참고) http header 의 deviceModel, osVersion 존재 여부는 alb 에서 체크되서 들어온 상태
-
             val customDeviceId: String? = request.getHeader("X-Service-Custom-Device-Id")
-            if (!customDeviceId.isValidUuid()) {
-                log.debug("[400-BAD_REQUEST] invalid customDeviceId: {}", customDeviceId)
-                reject(response, HttpStatus.BAD_REQUEST.value())
-                return
-            }
-
+            val deviceModel: String? = request.getHeader("X-Service-Device-Model")
             val osType: OsType? = OsType.valueOfOrNull(request.getHeader("X-Service-Os-Type"))
-            if (osType == null) {
-                log.debug("[400-BAD_REQUEST] invalid osType: {}", request.getHeader("X-Service-Os-Type"))
-                reject(response, HttpStatus.BAD_REQUEST.value())
+            val osVersion: String? = request.getHeader("X-Service-Os-Version")
+            if (!customDeviceId.isValidUuid() || deviceModel.isNullOrBlank() || osType == null || osVersion.isNullOrBlank()) {
+                log.debug("[400-BAD_REQUEST] invalid header: customDeviceId({}), deviceModel({}), osType({}), osVersion({})",
+                    customDeviceId, request.getHeader("X-Service-Os-Type"), osType, osVersion)
+                    reject(response, HttpStatus.BAD_REQUEST.value())
                 return
             }
 
@@ -48,9 +42,9 @@ class ApiHeaderContextFilter : OncePerRequestFilter() {
             // ThreadLocal 에 ApiRequestContext 설정
             ApiRequestContextHolder.set(ApiRequestContext(
                 customDeviceId = customDeviceId!!,
-                deviceModel = request.getHeader("X-Service-Device-Model")!!,
+                deviceModel = deviceModel,
                 osType = osType,
-                osVersion = request.getHeader("X-Service-Os-Version")!!,
+                osVersion = osVersion,
                 appVersion = appVersion!!,
                 clientIp = request.getHeader("X-Forwarded-For")?.substringBefore(",") ?: request.remoteAddr
             ))
