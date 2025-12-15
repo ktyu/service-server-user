@@ -52,6 +52,7 @@ class UserService(
                 device = device?.let { DeviceMapper.toModel(it) },
                 voterType = UserVoteEligibility.makeVoterType(voteEligibility),
                 ageGroup = AgeGroup.fromBirthdate(identity?.birthdate),
+                genderType = identity?.gender,
                 socialAccounts = socialAccounts,
             )
         }

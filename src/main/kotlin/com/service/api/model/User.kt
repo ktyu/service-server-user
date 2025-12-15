@@ -10,6 +10,7 @@ data class User(
     val device: Device?,
     val voterType: VoterType?,
     val ageGroup: AgeGroup?,
+    val genderType: GenderType?,
     val socialAccounts: List<SocialAccount>?,
 )
 

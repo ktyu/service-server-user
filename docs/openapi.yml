@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: SERVICE 서비스 서버 API
-  version: 2025.11.11
+  version: 2025.12.15
   description: |-
     SERVICE 서비스 제공을 위한 서버 API 명세 입니다.
 
@@ -379,6 +379,8 @@ paths:
                             $ref: '#/components/schemas/VoterType'
                           ageGroup:
                             $ref: '#/components/schemas/AgeGroup'
+                          genderType:
+                            $ref: '#/components/schemas/GenderType'
                           socialAccounts:
                             type: array
                             description: 연동된 소셜 계정 정보 리스트 (첫번째 원소가 현재 로그인된 소셜 계정)
@@ -702,6 +704,12 @@ components:
         - SIXTIES
         - SEVENTIES
         - EIGHTIES_AND_ABOVE
+    GenderType:
+      type: string
+      description: 성별
+      enum:
+        - M
+        - F
     TermsAgreements:
       type: array
       description: 사용자가 동의한 약관 리스트
