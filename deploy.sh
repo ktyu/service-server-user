@@ -6,7 +6,7 @@ set -euo pipefail
 ########################################
 KEY_FILE="./develop.pem"          # 현재 폴더에 있는 pem 키
 REMOTE_USER="ec2-user"              # 서버 계정
-REMOTE_HOST="dev-bastion.service.co.kr"     # 서버 주소 또는 IP
+REMOTE_HOST="admin.service.co.kr"     # 서버 주소 또는 IP
 REMOTE_DIR="/home/ec2-user"     # JAR 복사할 서버 디렉토리
 RUN_SCRIPT="deploy_run.sh"               # 서버에서 실행할 스크립트 이름 (REMOTE_DIR 안에 있다고 가정)
 
