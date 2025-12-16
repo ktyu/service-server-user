@@ -27,6 +27,13 @@ firebase:
   credentials: |
     e30
 
+identity:
+  salt-for-ci-hashing: serviceSalt#$
+  kcb:
+    popup-url: https://safe.ok-name.co.kr/CommonSvl
+    cp-id: AB1234567890
+    # license 값이 없거나 공백이면 본인인증 관련 기능이 전체 mock 으로 동작
+
 logging:
   level:
     com.service.api: DEBUG

@@ -27,6 +27,7 @@ dependencies {
     implementation("com.google.firebase:firebase-admin:9.7.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.uuid:java-uuid-generator:5.1.0")
+//    implementation(files("lib/OkCert3-java1.5-2.3.3.jar"))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
