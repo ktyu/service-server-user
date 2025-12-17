@@ -37,6 +37,7 @@ class UserService(
                 region = profile.region,
                 interestFields = profile.interestFields,
                 interestLevel = profile.interestLevel,
+                issueNote = profile.issueNote,
                 isForeigner = identity?.isForeigner,
                 birthdate = identity?.birthdate,
             )

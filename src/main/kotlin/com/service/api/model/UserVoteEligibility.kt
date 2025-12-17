@@ -11,6 +11,7 @@ data class UserVoteEligibility(
     val region: Region?,
     val interestFields: Set<InterestField>?,
     val interestLevel: InterestLevel?,
+    val issueNote: String?,
     val isForeigner: Boolean?,
     val birthdate: LocalDate?,
 ) {
@@ -28,6 +29,9 @@ data class UserVoteEligibility(
                 val age = AgeGroup.getAge(birthdate)
                 if (age < 18)
                     return VoterType.UNDERAGE
+
+                if (!issueNote.isNullOrBlank())
+                    return VoterType.BLOCKED
 
                 return VoterType.ELIGIBLE
             }

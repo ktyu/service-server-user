@@ -46,6 +46,9 @@ class JpaUserProfileEntity(
     @Column(name = "interest_level", length = 8)
     var interestLevel: InterestLevel? = null,
 
+    @Column(name = "issue_note", length = 256)
+    var issueNote: String? = null, // null 또는 blank 가 아니라면, 투표 불가(BLOCKED)
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 

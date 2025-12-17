@@ -8,6 +8,7 @@ CREATE TABLE user_profile (
     region VARCHAR(16) NULL,
     interest_fields JSON NULL,
     interest_level VARCHAR(8) NULL,
+    issue_note VARCHAR(256) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME(6) NOT NULL,
     deleted_at DATETIME NULL,
