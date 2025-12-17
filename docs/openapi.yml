@@ -301,6 +301,11 @@ paths:
                             $ref: '#/components/schemas/AccessToken'
                           refreshToken:
                             $ref: '#/components/schemas/RefreshToken'
+                          socialAccounts:
+                            type: array
+                            description: 연동된 소셜 계정 정보 리스트 (첫번째 원소가 현재 로그인된 소셜 계정)
+                            items:
+                              $ref: '#/components/schemas/SocialAccount'
                         required:
                           - isMerged
                           - ageGroup
@@ -324,6 +329,13 @@ paths:
                       serviceUserId: 1
                       accessToken: string
                       refreshToken: string
+                      socialAccounts:
+                        - id: 1
+                          socialType: GOOGLE
+                          email: user1@gmail.com
+                        - id: 2
+                          socialType: KAKAO
+                          email: user2@kakao.com
   /v1/auth/logout:
     delete:
       tags:

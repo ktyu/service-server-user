@@ -41,11 +41,7 @@ class UserService(
                 birthdate = identity?.birthdate,
             )
 
-            val socialAccounts = userRepository.findSocialAccountsBy(serviceUserId = serviceUserId).run {
-                val current = firstOrNull { it.id == socialId }
-                    ?: throw RuntimeException("socialId is missing in socialAccounts: $socialId")
-                listOf(current) + filterNot { it == current } // 현재 로그인된 소셜 계정을 첫 번째 원소로 둠
-            }
+            val socialAccounts = getUserSocialAccounts(serviceUserId, socialId)
 
             return User(
                 profile = ProfileMapper.toModel(profile),
@@ -123,7 +119,7 @@ class UserService(
     }
 
     @Transactional
-    fun mergeUser(sourceServiceUserId: Long, socialId: Long, targetServiceUserId: Long) {
+    fun mergeUser(sourceServiceUserId: Long, socialId: Long, targetServiceUserId: Long): List<SocialAccount> {
         // source profile 은 삭제하고, 닉네임 & 약관동의 이력을 target profile 과 병합
         val sourceProfile = userProfileRepository.findByServiceUserIdAndDeletedAtIsNull(sourceServiceUserId)
             ?: throw ServiceUserNotFoundException(sourceServiceUserId)
@@ -143,6 +139,9 @@ class UserService(
 
         // source 의 social mapping 들을 target 으로 이관
         socialService.mergeAllSocialMappingServiceUserId(sourceServiceUserId, targetServiceUserId)
+
+        // 병합 완료 이후, 현재 소셜 아이디 정보들 리턴
+        return getUserSocialAccounts(targetServiceUserId, socialId)
     }
 
     @Transactional
@@ -167,5 +166,13 @@ class UserService(
             "deviceModel" to deviceModel,
         )
         return FirebaseAuth.getInstance().createCustomToken(serviceUserId.toString(), claims)
+    }
+
+    private fun getUserSocialAccounts(serviceUserId: Long, currentSocialId: Long): List<SocialAccount> {
+        return userRepository.findSocialAccountsBy(serviceUserId = serviceUserId).run {
+            val current = firstOrNull { it.id == currentSocialId }
+                ?: throw RuntimeException("currentSocialId is missing in socialAccounts: $currentSocialId")
+            listOf(current) + filterNot { it == current } // 현재 로그인된 소셜 계정을 첫 번째 원소로 둠
+        }
     }
 }

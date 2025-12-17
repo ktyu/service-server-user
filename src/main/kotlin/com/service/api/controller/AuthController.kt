@@ -67,10 +67,10 @@ class AuthController(
             val ctx = ApiRequestContextHolder.get()
             val (mappedServiceUserId, ageGroup) = identityService.saveIdentity(MDL_TKN, ctx.serviceUserId!!, ctx.socialId!!)
             if (ctx.serviceUserId!! != mappedServiceUserId) {
-                userService.mergeUser(ctx.serviceUserId!!, ctx.socialId!!, mappedServiceUserId)
+                val socialAccounts = userService.mergeUser(ctx.serviceUserId!!, ctx.socialId!!, mappedServiceUserId)
                 val (accessToken, refreshToken) = deviceService.saveDevice(mappedServiceUserId, ctx.socialId!!)
 
-                Response.success(SaveIdentityResponse(true, ageGroup, mappedServiceUserId, accessToken, refreshToken))
+                Response.success(SaveIdentityResponse(true, ageGroup, mappedServiceUserId, accessToken, refreshToken, socialAccounts))
             } else {
                 Response.success(SaveIdentityResponse(false, ageGroup))
             }
