@@ -2,13 +2,13 @@ package com.service.api.model
 
 import com.service.api.common.InterestField
 import com.service.api.common.enum.AgeGroup
-import com.service.api.common.enum.District
+import com.service.api.common.enum.Region
 import com.service.api.common.enum.InterestLevel
 import com.service.api.common.enum.VoterType
 import java.time.LocalDate
 
 data class UserVoteEligibility(
-    val district: District?,
+    val region: Region?,
     val interestFields: Set<InterestField>?,
     val interestLevel: InterestLevel?,
     val isForeigner: Boolean?,
@@ -17,7 +17,7 @@ data class UserVoteEligibility(
     companion object {
         fun makeVoterType(userVoteEligibility: UserVoteEligibility): VoterType {
             with (userVoteEligibility) {
-                val isProfileCompleted = district != null && interestFields != null && interestLevel != null
+                val isProfileCompleted = region != null && interestFields != null && interestLevel != null
 
                 if (!isProfileCompleted || isForeigner == null || birthdate == null)
                     return VoterType.INCOMPLETE

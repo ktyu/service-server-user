@@ -2,7 +2,7 @@ package com.service.api.service
 
 import com.google.firebase.auth.FirebaseAuth
 import com.service.api.common.enum.AgeGroup
-import com.service.api.common.enum.District
+import com.service.api.common.enum.Region
 import com.service.api.common.enum.OsType
 import com.service.api.common.enum.VoterType
 import com.service.api.common.exception.ServiceUserNotFoundException
@@ -34,7 +34,7 @@ class UserService(
             ?: throw ServiceUserNotFoundException(serviceUserId)
         with (projection) {
             val voteEligibility = UserVoteEligibility(
-                district = profile.district,
+                region = profile.region,
                 interestFields = profile.interestFields,
                 interestLevel = profile.interestLevel,
                 isForeigner = identity?.isForeigner,
@@ -66,10 +66,10 @@ class UserService(
         return nickname.trim() !in listOf("관리자", "운영자") // TODO: 정확한 정책 정해지면 구현 필요
     }
 
-    fun getDistrictAndAgeGroupIfEligibleOrNull(serviceUserId: Long): Pair<District, AgeGroup>? {
+    fun getRegionAndAgeGroupIfEligibleOrNull(serviceUserId: Long): Pair<Region, AgeGroup>? {
         userRepository.findUserVoteEligibilityBy(serviceUserId)?.let {
             if (UserVoteEligibility.makeVoterType(it) == VoterType.ELIGIBLE)
-                return Pair(it.district!!, AgeGroup.fromBirthdate(it.birthdate!!))
+                return Pair(it.region!!, AgeGroup.fromBirthdate(it.birthdate!!))
         }
         return null
     }
@@ -108,7 +108,7 @@ class UserService(
                 userProfileEntity.nicknameUpdatedAt = LocalDateTime.now()
             }
             profile.imageUrl?.let { userProfileEntity.imageUrl = it }
-            profile.district?.let { userProfileEntity.district = it }
+            profile.region?.let { userProfileEntity.region = it }
             profile.interestFields?.let { userProfileEntity.interestFields = it }
             profile.interestLevel?.let { userProfileEntity.interestLevel = it }
             profile.termsAgreements?.let {

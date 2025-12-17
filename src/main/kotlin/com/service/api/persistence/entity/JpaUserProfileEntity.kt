@@ -2,7 +2,7 @@ package com.service.api.persistence.entity
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.service.api.common.enum.District
+import com.service.api.common.enum.Region
 import com.service.api.common.enum.InterestLevel
 import com.service.api.common.InterestField
 import jakarta.persistence.AttributeConverter
@@ -35,8 +35,8 @@ class JpaUserProfileEntity(
     var imageUrl: String? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "district", length = 16)
-    var district: District? = null,
+    @Column(name = "region", length = 16)
+    var region: Region? = null,
 
     @Convert(converter = InterestFieldSetJsonConverter::class)
     @Column(name = "interest_fields", columnDefinition = "JSON")

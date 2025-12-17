@@ -741,7 +741,7 @@ components:
           type: string
           description: 프로필 사진 URL
           example: https://cdn.service.co.kr/profile/image/abcabc.jpg
-        district:
+        region:
           type: string
           description: 지역구
           enum:

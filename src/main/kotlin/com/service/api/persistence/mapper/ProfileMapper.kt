@@ -9,7 +9,7 @@ object ProfileMapper {
         Profile(
             nickname = entity.nickname,
             imageUrl = entity.imageUrl,
-            district = entity.district,
+            region = entity.region,
             interestFields = entity.interestFields,
             interestLevel = entity.interestLevel,
             termsAgreements = entity.termsAgreements.map { (k, v) -> TermsAgreement(k, v) },

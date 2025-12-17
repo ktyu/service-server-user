@@ -5,7 +5,7 @@ CREATE TABLE user_profile (
     terms_agreements JSON NOT NULL,
     terms_agreements_updated_at DATETIME NOT NULL,
     image_url VARCHAR(256) NULL,
-    district VARCHAR(16) NULL,
+    region VARCHAR(16) NULL,
     interest_fields JSON NULL,
     interest_level VARCHAR(8) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

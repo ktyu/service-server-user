@@ -37,7 +37,7 @@ interface UserRepository : JpaRepository<JpaUserProfileEntity, Long> {
 
     @Query("""
         SELECT new com.service.api.model.UserVoteEligibility(
-            p.district, p.interestFields, p.interestLevel, i.isForeigner, i.birthdate
+            p.region, p.interestFields, p.interestLevel, i.isForeigner, i.birthdate
         )
         FROM JpaUserProfileEntity p
         LEFT JOIN JpaUserIdentityMappingEntity im ON im.id.serviceUserId = p.serviceUserId

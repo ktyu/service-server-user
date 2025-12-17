@@ -1,6 +1,6 @@
 package com.service.api.common.enum
 
-enum class District {
+enum class Region {
     SEOUL,
     INCHEON,
     GYEONGGI,

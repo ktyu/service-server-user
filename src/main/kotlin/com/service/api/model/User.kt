@@ -18,7 +18,7 @@ data class User(
 data class Profile(
     val nickname: String?,
     val imageUrl: String?,
-    val district: District?,
+    val region: Region?,
     val interestFields: Set<InterestField>?,
     val interestLevel: InterestLevel?,
     val termsAgreements: List<TermsAgreement>?,
